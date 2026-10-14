@@ -209,6 +209,9 @@ namespace ChangeClip.Frontend.Tests
             var root = GetRoot(window);
             FindExpander(root).IsExpanded = true;
             Layout(window);
+            var statusPanel = FindNamedBorder(root, "StatusPanel");
+            Assert(statusPanel.ActualHeight + 0.5 >= statusPanel.DesiredSize.Height,
+                "expanded preview status panel has enough height for its content");
             const int width = 760;
             const int height = 720;
             var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
@@ -280,6 +283,36 @@ namespace ChangeClip.Frontend.Tests
             for (var i = 0; i < count; i++)
             {
                 var found = FindExpanderOrNull(VisualTreeHelper.GetChild(parent, i));
+                if (found != null) return found;
+            }
+            return null;
+        }
+
+        private static Border FindNamedBorder(DependencyObject parent, string name)
+        {
+            var border = parent as Border;
+            var frameworkElement = parent as FrameworkElement;
+            if (border != null && frameworkElement != null &&
+                String.Equals(frameworkElement.Name, name, StringComparison.Ordinal)) return border;
+            var count = VisualTreeHelper.GetChildrenCount(parent);
+            for (var i = 0; i < count; i++)
+            {
+                var found = FindNamedBorderOrNull(VisualTreeHelper.GetChild(parent, i), name);
+                if (found != null) return found;
+            }
+            throw new InvalidOperationException("Named Border not found: " + name);
+        }
+
+        private static Border FindNamedBorderOrNull(DependencyObject parent, string name)
+        {
+            var border = parent as Border;
+            var frameworkElement = parent as FrameworkElement;
+            if (border != null && frameworkElement != null &&
+                String.Equals(frameworkElement.Name, name, StringComparison.Ordinal)) return border;
+            var count = VisualTreeHelper.GetChildrenCount(parent);
+            for (var i = 0; i < count; i++)
+            {
+                var found = FindNamedBorderOrNull(VisualTreeHelper.GetChild(parent, i), name);
                 if (found != null) return found;
             }
             return null;

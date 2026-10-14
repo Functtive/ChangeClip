@@ -44,6 +44,14 @@ namespace ChangeClip.Frontend
                     : "";
             }
         }
+        public Visibility SimulatorHintVisibility
+        {
+            get { return String.IsNullOrEmpty(SimulatorHint) ? Visibility.Collapsed : Visibility.Visible; }
+        }
+        public Visibility ErrorVisibility
+        {
+            get { return String.IsNullOrEmpty(_error) ? Visibility.Collapsed : Visibility.Visible; }
+        }
         public bool CanExchange { get { return !_isBusy && _snapshot.CanExchange; } }
         public bool CanReturn { get { return !_isBusy && _snapshot.CanReturn; } }
         public bool IsPayoutInProgress
@@ -151,7 +159,10 @@ namespace ChangeClip.Frontend
         {
             _error = String.IsNullOrWhiteSpace(message) ? "Došlo je do greške." : message;
             OnPropertyChanged("Error");
+            OnPropertyChanged("ErrorVisibility");
             OnPropertyChanged("SimulatorHint");
+            OnPropertyChanged("SimulatorHintVisibility");
+            OnPropertyChanged("ErrorVisibility");
         }
 
         private static string Format(int minor)
