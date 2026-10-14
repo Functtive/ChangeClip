@@ -1,4 +1,4 @@
-# PayClip
+# ChangeClip
 
 Jednostavna Windows aplikacija za provjeru NV9 prihvata novčanica i Azkoyen U-II isplate kovanica. Valuta je BAM; prihvataju se novčanice od 10 i 20 KM.
 
@@ -14,9 +14,9 @@ Jednostavna Windows aplikacija za provjeru NV9 prihvata novčanica i Azkoyen U-I
 
 ```text
 src/
-  PayClip.Frontend/        WPF korisnički ekran
-  PayClip.Backend/         Tok razmjene i evidencija transakcija
-  PayClip.Devices/
+  ChangeClip.Frontend/     WPF korisnički ekran
+  ChangeClip.Backend/      Tok razmjene i evidencija transakcija
+  ChangeClip.Devices/
     NV9/                  ITL SDK / eSSP integracija preko USB-a
     Hopper/               Azkoyen U-II ccTalk integracija
     Simulator/            Provjera toka bez priključenih uređaja

@@ -1,4 +1,4 @@
-# PayClip — plan razvoja
+# ChangeClip — plan razvoja
 
 Datum: 2026-10-14
 
