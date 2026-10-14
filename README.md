@@ -2,6 +2,8 @@
 
 Jednostavna Windows aplikacija za provjeru NV9 prihvata novčanica i Azkoyen U-II isplate kovanica. Valuta je BAM; prihvataju se novčanice od 10 i 20 KM.
 
+NV9 se ručno programira/podešava prije upotrebe. Aplikacija preko USB-a samo upravlja radom uređaja; programiranje firmwarea ili dataseta nije dio projekta. U aplikaciju uključujemo samo funkcije potvrđene u relevantnoj dostavljenoj dokumentaciji.
+
 ## Predviđeni tok
 
 1. Aplikacija povezuje uređaje i aktivira prihvat novčanica.
@@ -29,8 +31,10 @@ logs/                     Lokalni komunikacijski logovi
 
 ## Trenutno stanje
 
-Pripremljeni su početni plan i Git podešavanja. Aplikacija još nije implementirana, a stvarni uređaji nisu testirani.
+Pripremljeni su početni plan i Git podešavanja. Lokalni ITL eSSP SDK v2.0.9 je pronađen i upoređen s GitHub alternativama. Aplikacija još nije implementirana, a stvarni uređaji nisu testirani.
 
 Za razvoj je potreban .NET SDK. Za integraciju trebaju ITL SDK, tačan NV9 model s potvrđenim BAM datasetom, U-II varijanta, driver/dokumentacija USB–ccTalk donglea i odabrani apoen kovanice.
 
 [Detaljni plan razvoja](PLAN_RAZVOJA.md)
+
+[Poređenje NV9 SDK-a](docs/NV9_SDK_POREDJENJE.md)

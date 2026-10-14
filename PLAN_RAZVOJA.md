@@ -8,11 +8,13 @@ Windows aplikacija za mijenjanje BAM novčanica u kovanice. NV9 se povezuje prek
 
 Ovo je početni plan. Aplikacija i komunikacija sa stvarnim uređajima još nisu izrađene niti testirane.
 
+NV9 se ručno programira/podešava prije upotrebe. Aplikacija preko USB-a samo upravlja radom uređaja; programiranje firmwarea ili dataseta nije dio projekta. U aplikaciju uključujemo samo funkcije potvrđene u relevantnoj dostavljenoj dokumentaciji.
+
 ## Šta je pronađeno
 
 | Uređaj | Razvojni materijal | Pristup i ograničenje |
 |---|---|---|
-| Innovative Technology NV9 | ITL eSSP SDK; novija ITL SDK dokumentacija opisuje C#/.NET biblioteke i REST API. | SDK paket treba pribaviti preko ITL podrške/korisničkog pristupa. Kompatibilnost novijeg paketa s konkretnim NV9 modelom još nije potvrđena. |
+| Innovative Technology NV9 | Lokalno pronađen ITL eSSP SDK v2.0.9, ITLlib 1.0.0.3, C# primjer i NV9 priručnici. | Predložena osnova za prototip; pogledati [poređenje](docs/NV9_SDK_POREDJENJE.md). Fizički model i rad treba potvrditi testom. |
 | Azkoyen Hopper U-II | Proizvođačev dokument „ccTalk Protocol — Hopper U-II”, verzija 1, 06/2011. | Pronađen je javni PDF kod distributera; javni službeni U-II SDK paket nije pronađen. Za obični ccTalk predlažem vlastiti C# komunikacijski modul prema dokumentaciji. Za Encrypted verziju treba potvrditi dodatne zahtjeve s Azkoyenom. |
 
 USB je način povezivanja. Za NV9 predlažem eSSP, a za hopper ccTalk. Tačan adapter određuje koristi li aplikacija COM port ili API adaptera. ccTalk koristi jednu dvosmjernu podatkovnu liniju; adapter mora podržavati taj električni interfejs. Napajanje uređaja treba pripremiti prema tačnim modelima i njihovim priručnicima.
@@ -22,10 +24,10 @@ USB je način povezivanja. Za NV9 predlažem eSSP, a za hopper ccTalk. Tačan ad
 1. **Popis hardvera:** zabilježiti tačan NV9 model, firmware/dataset, U-II varijantu, naziv donglea, kablove i napajanje.
 2. **Odabrati kovanicu:** utvrditi apoen koji će hopper isplaćivati i provjeriti njegovu mehaničku kompatibilnost. Za prvi prototip koristiti jedan apoen po hopperu.
 3. **Odrediti pravila zamjene:** koje novčanice primamo, da li je zamjena 1:1, postoji li provizija i koliki je maksimalni iznos.
-4. **Pribaviti razvojne pakete:** ITL SDK, USB driver, odgovarajući NV9 priručnik, potvrđen BAM dataset i dokumentaciju/drajver za dongle.
+4. **Pripremiti razvojne pakete:** koristiti pronađeni lokalni ITL SDK, USB driver i NV9 priručnik; provjeriti unaprijed ručno podešen BAM dataset i dokumentaciju/drajver za dongle.
 5. **Provjeriti uređaje pojedinačno:** NV9 u proizvođačevom testnom alatu; U-II kroz identifikaciju i očitavanje statusa preko ccTalk-a.
 6. **Napraviti simulator:** Windows ekran za simulirano ubacivanje novčanice i isplatu kovanica, uključujući prazan hopper, zastoj i prekid veze.
-7. **Napraviti NV9 modul:** povezivanje, čitanje apoena i događaja, upravljanje prihvatom i evidentiranje konačno prihvaćene novčanice samo jednom.
+7. **Napraviti NV9 modul:** povezivanje, čitanje apoena i događaja, dokumentirana HOLD/REJECT logika za čekanje korisnikove odluke i evidentiranje konačno prihvaćene novčanice samo jednom.
 8. **Napraviti U-II modul:** identifikacija, aktivacija, isplata zadanog broja kovanica, praćenje stvarno isplaćenog broja i grešaka.
 9. **Povezati tok zamjene:** provjeriti raspoložive kovanice prije dopuštanja prihvata, prihvatiti novčanicu, trajno zabilježiti obavezu isplate i isplatiti izračunat broj kovanica.
 10. **Dodati evidenciju:** lokalna SQLite baza za uplate, isplate, neisplaćeni ostatak, servisne dopune kovanica i pražnjenje novčanica. Iznose računati u cijelim feningima.
