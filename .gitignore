@@ -6,6 +6,8 @@
 *.user
 *.suo
 TestResults/
+.tools/
+artifacts/
 
 # Local runtime data
 /data/

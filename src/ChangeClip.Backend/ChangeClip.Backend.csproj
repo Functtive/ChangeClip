@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup><ProjectReference Include="..\ChangeClip.Contracts\ChangeClip.Contracts.csproj" /></ItemGroup>
+  <ItemGroup><Reference Include="System.Runtime.Serialization" /></ItemGroup>
+</Project>

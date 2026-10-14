@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>ChangeClip.Frontend</RootNamespace>
+    <AssemblyName>ChangeClip</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ChangeClip.Contracts\ChangeClip.Contracts.csproj" />
+    <ProjectReference Include="..\ChangeClip.Backend\ChangeClip.Backend.csproj" />
+    <ProjectReference Include="..\ChangeClip.Devices\ChangeClip.Devices.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\config\device.example.json" Link="config\device.example.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

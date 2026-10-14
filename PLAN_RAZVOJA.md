@@ -6,7 +6,7 @@ Datum: 2026-10-14
 
 Windows aplikacija za mijenjanje BAM novčanica u kovanice. NV9 se povezuje preko USB-a, a Azkoyen Hopper U-II preko USB–ccTalk adaptera.
 
-Ovo je početni plan. Aplikacija i komunikacija sa stvarnim uređajima još nisu izrađene niti testirane.
+Ovo je početni plan, dopunjen statusom prototipa. Windows EXE, frontend, backend, simulator, NV9/eSSP i standardni U-II/ccTalk adapteri sada su implementirani. Build i simulator provjere prošli su na razvojnom računaru. Stvarni uređaji nisu spojeni i fizički rad nije testiran. Aktuelna instalacija i tok opisani su u [README](README.md) i [uputstvu](docs/INSTALACIJA.md).
 
 NV9 se ručno programira/podešava prije upotrebe. Aplikacija preko USB-a samo upravlja radom uređaja; programiranje firmwarea ili dataseta nije dio projekta. U aplikaciju uključujemo samo funkcije potvrđene u relevantnoj dostavljenoj dokumentaciji.
 
@@ -30,22 +30,22 @@ USB je način povezivanja. Za NV9 predlažem eSSP, a za hopper ccTalk. Tačan ad
 7. **Napraviti NV9 modul:** povezivanje, čitanje apoena i događaja, dokumentirana HOLD/REJECT logika za čekanje korisnikove odluke i evidentiranje konačno prihvaćene novčanice samo jednom.
 8. **Napraviti U-II modul:** identifikacija, aktivacija, isplata zadanog broja kovanica, praćenje stvarno isplaćenog broja i grešaka.
 9. **Povezati tok zamjene:** provjeriti raspoložive kovanice prije dopuštanja prihvata, prihvatiti novčanicu, trajno zabilježiti obavezu isplate i isplatiti izračunat broj kovanica.
-10. **Dodati evidenciju:** lokalna SQLite baza za uplate, isplate, neisplaćeni ostatak, servisne dopune kovanica i pražnjenje novčanica. Iznose računati u cijelim feningima.
+10. **Dodati evidenciju:** prototip koristi atomski JSON journal za namjeru prihvata/isplate, potvrđenu uplatu, stvarno isplaćeni iznos i neisplaćeni ostatak. Iznosi su cijeli feningi. Servisno razrješenje duga i proširena baza nisu dio prve verzije.
 11. **Obraditi prekide:** nakon timeouta, restarta ili nestanka struje prvo uskladiti zapis transakcije sa stanjem uređaja. Ne ponavljati nalog za isplatu bez provjere šta je već isplaćeno.
-12. **Dodati korisnički i servisni ekran:** uputstva za zamjenu, status isplate, greške, stanje zalihe, podešavanja i zaštićen servisni pristup.
+12. **Dodati korisnički ekran:** prikaz iznosa, statusa i jedno dugme Razmijeni, prema zadnjem korisnikovom zahtjevu. Razvojni simulator panel vidljiv je samo u simulator režimu; nema dodatnog servisnog menija.
 13. **Testirati s hardverom:** normalna zamjena, odbijena novčanica, ponovljeni događaj, manjak kovanica, djelimična isplata, zastoj, vađenje USB-a i nestanak struje.
 14. **Pripremiti instalaciju:** Windows paket, konfiguracija portova i uređaja, logovi, pokretanje aplikacije i servisna uputstva.
 
 ## Predložena osnova
 
-- C#/.NET za komunikaciju i logiku; ciljnu .NET verziju odabrati nakon pregleda pribavljenog SDK-a.
+- C#/.NET Framework 4.8 za komunikaciju i logiku, zbog kompatibilnosti lokalnog ITL SDK-a.
 - WPF za Windows korisnički interfejs.
-- SQLite za lokalnu evidenciju transakcija.
+- Atomski JSON journal za lokalnu evidenciju transakcija prototipa.
 - Odvojeni simulator, NV9 modul, U-II modul i logika zamjene, tako da se isti tok provjerava u simulaciji i s uređajima.
 
 Primjer bez provizije: ako hopper sadrži kovanice od 1 KM, potvrđena uplata od 10 KM zahtijeva isplatu 10 kovanica. Izbor apoena još nije dogovoren.
 
-Zaliha se za početak vodi iz potvrđenih servisnih dopuna i stvarnih isplata. Senzor prazno/puno nije precizan brojač svih preostalih kovanica. Djelimično neisplaćen iznos mora ostati evidentiran za rješavanje.
+Simulator ima poznatu zalihu. Hardware adapter ne izmišlja precizan broj dostupnih kovanica; zaliha u prototipu može biti nepoznata. Counter/status potvrđuju isplaćene kovanice. Senzor prazno/puno nije precizan brojač svih preostalih kovanica. Djelimično neisplaćen iznos ostaje evidentiran za rješavanje.
 
 ## Podaci koji još nedostaju
 

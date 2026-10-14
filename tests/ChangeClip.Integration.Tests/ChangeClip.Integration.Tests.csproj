@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ChangeClip.Contracts\ChangeClip.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\ChangeClip.Backend\ChangeClip.Backend.csproj" />
+    <ProjectReference Include="..\..\src\ChangeClip.Devices\ChangeClip.Devices.csproj" />
+  </ItemGroup>
+</Project>

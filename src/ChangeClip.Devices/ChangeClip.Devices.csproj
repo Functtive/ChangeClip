@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net48</TargetFramework><LangVersion>7.3</LangVersion></PropertyGroup>
+  <PropertyGroup Condition="Exists('..\..\vendor\ITL\ITLlib.dll')"><DefineConstants>$(DefineConstants);ITL_SDK</DefineConstants></PropertyGroup>
+  <ItemGroup><ProjectReference Include="..\ChangeClip.Contracts\ChangeClip.Contracts.csproj" /></ItemGroup>
+  <ItemGroup Condition="Exists('..\..\vendor\ITL\ITLlib.dll')"><Reference Include="ITLlib"><HintPath>..\..\vendor\ITL\ITLlib.dll</HintPath><Private>true</Private></Reference></ItemGroup>
+</Project>
