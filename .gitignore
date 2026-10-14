@@ -1,0 +1,34 @@
+# .NET build output and IDE state
+**/bin/
+**/obj/
+.vs/
+.idea/
+*.user
+*.suo
+TestResults/
+
+# Local runtime data
+/data/
+/logs/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local.json
+*.pfx
+*.p12
+
+# Vendor SDK binaries are added only when redistribution permits it
+/vendor/ITL/*.dll
+/vendor/ITL/*.zip
+
+# OS files
+Thumbs.db
+Desktop.ini
