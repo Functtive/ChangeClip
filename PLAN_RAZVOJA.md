@@ -27,9 +27,9 @@ USB je način povezivanja. Za NV9 predlažem eSSP, a za hopper ccTalk. Tačan ad
 4. **Pripremiti razvojne pakete:** koristiti pronađeni lokalni ITL SDK, USB driver i NV9 priručnik; provjeriti unaprijed ručno podešen BAM dataset i dokumentaciju/drajver za dongle.
 5. **Provjeriti uređaje pojedinačno:** NV9 u proizvođačevom testnom alatu; U-II kroz identifikaciju i očitavanje statusa preko ccTalk-a.
 6. **Napraviti simulator:** Windows ekran za simulirano ubacivanje novčanice i isplatu kovanica, uključujući prazan hopper, zastoj i prekid veze.
-7. **Napraviti NV9 modul:** povezivanje, čitanje apoena i događaja, dokumentirana HOLD/REJECT logika za čekanje korisnikove odluke i evidentiranje konačno prihvaćene novčanice samo jednom.
+7. **Napraviti NV9 modul:** povezivanje, automatski prihvat kroz POLL i čitanje stvarnih CREDIT/STACKED događaja. Više novčanica prihvata se prije klika, bez HOLD čekanja korisničke odluke; svaki kredit evidentira se jednom.
 8. **Napraviti U-II modul:** identifikacija, aktivacija, isplata zadanog broja kovanica, praćenje stvarno isplaćenog broja i grešaka.
-9. **Povezati tok zamjene:** provjeriti raspoložive kovanice prije dopuštanja prihvata, prihvatiti novčanicu, trajno zabilježiti obavezu isplate i isplatiti izračunat broj kovanica.
+9. **Povezati tok zamjene:** automatski spremati novčanice i trajno sabirati bilans. Klik Razmijeni isključuje novi prihvat, čeka novčanicu koja je već ušla i pokreće isplatu ukupnog potvrđenog iznosa; svaka isplatna komanda unaprijed se evidentira.
 10. **Dodati evidenciju:** prototip koristi atomski JSON journal za namjeru prihvata/isplate, potvrđenu uplatu, stvarno isplaćeni iznos i neisplaćeni ostatak. Iznosi su cijeli feningi. Servisno razrješenje duga i proširena baza nisu dio prve verzije.
 11. **Obraditi prekide:** nakon timeouta, restarta ili nestanka struje prvo uskladiti zapis transakcije sa stanjem uređaja. Ne ponavljati nalog za isplatu bez provjere šta je već isplaćeno.
 12. **Dodati korisnički ekran:** prikaz iznosa, statusa i jedno dugme Razmijeni, prema zadnjem korisnikovom zahtjevu. Razvojni simulator panel vidljiv je samo u simulator režimu; nema dodatnog servisnog menija.

@@ -35,60 +35,65 @@ namespace ChangeClip.Frontend.Tests
                     AssertButtons(readyWindow, false, "Ready");
                     var readyViewModel = (ExchangeViewModel)readyWindow.DataContext;
                     Assert(readyViewModel.ReceivedAmount == "0,00 KM", "initial amount uses fixed Bosnian KM formatting");
-                    Assert(readyViewModel.SimulatorHint.Contains("ubacite 10 ili 20 KM"),
+                    Assert(readyViewModel.SimulatorHint.Contains("Ubacite 10 ili 20 KM"),
                         "simulator explains how to enable exchange");
                 }
                 finally { DisposeWindow(readyWindow); }
 
-                var awaiting = new ExchangeSnapshot(ExchangeState.AwaitingChoice,
-                    "Želite li razmijeniti novac?", 1000, 0, 0, true, true);
-                var interactionSession = new StubExchangeSession(awaiting);
-                var interactionSimulator = new StubSimulatorControls();
-                var interactionWindow = CreateWindow(interactionSession, interactionSimulator);
-                try
-                {
-                    var interactionRoot = GetRoot(interactionWindow);
-                    FindExpander(interactionRoot).IsExpanded = true;
-                    Layout(interactionWindow);
-                    var exchangeButton = FindButton(interactionRoot, "Razmijeni");
-                    exchangeButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, exchangeButton));
-                    Assert(interactionSession.ExchangeCalls == 1, "Razmijeni click invokes session once");
-
-                    var insertButton = FindButton(interactionRoot, "Ubaci 10 KM");
-                    insertButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, insertButton));
-                    Assert(interactionSimulator.InsertCalls == 1 && interactionSimulator.LastInsertedMinor == 1000,
-                        "simulator 10 KM click inserts 1000 minor units");
-                }
-                finally { DisposeWindow(interactionWindow); }
-
                 var session = new StubExchangeSession(ready);
-                var simulator = new StubSimulatorControls { HopperCoins = 17 };
-                Progress("Creating simulator preview window.");
+                var simulator = new StubSimulatorControls { HopperCoins = 100 };
+                simulator.OnInsert = delegate(int amountMinor)
+                {
+                    var total = session.Snapshot.ReceivedMinor + amountMinor;
+                    session.Publish(new ExchangeSnapshot(ExchangeState.AwaitingPayout,
+                        "Primljeno. Pritisnite Razmijeni za isplatu.", total, 0, 0, true, false));
+                };
+                Progress("Creating simulator wallet preview window.");
                 var preview = CreateWindow(session, simulator);
-                Progress("Preview window created; publishing 20 KM from worker thread.");
-                var twenty = new ExchangeSnapshot(ExchangeState.AwaitingChoice,
-                    "Želite li razmijeniti novac?", 2000, 0, 0, true, true);
-                PublishFromBackgroundAndDrain(session, twenty, preview);
-                Assert(((ExchangeViewModel)preview.DataContext).ReceivedAmount == "20,00 KM",
-                    "received amount changes to 20,00 KM after 20 KM input");
-
-                Progress("Publishing 10 KM for the final preview.");
-                PublishFromBackgroundAndDrain(session, awaiting, preview);
-                AssertButtons(preview, true, "AwaitingChoice");
+                var previewRoot = GetRoot(preview);
+                FindExpander(previewRoot).IsExpanded = true;
+                Layout(preview);
+                var insert10 = FindButton(previewRoot, "Ubaci 10 KM");
+                insert10.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, insert10));
+                PublishFromBackgroundAndDrain(session, session.Snapshot, preview);
+                Assert(((ExchangeViewModel)preview.DataContext).ReceivedAmount == "10,00 KM",
+                    "wallet adds 10 KM after first note");
+                var insert20 = FindButton(previewRoot, "Ubaci 20 KM");
+                insert20.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, insert20));
+                PublishFromBackgroundAndDrain(session, session.Snapshot, preview);
+                Assert(simulator.InsertCalls == 2 && simulator.LastInsertedMinor == 2000,
+                    "simulator inserts 10 KM and 20 KM notes");
 
                 var viewModel = (ExchangeViewModel)preview.DataContext;
-                Assert(viewModel.ReceivedAmount == "10,00 KM", "final preview shows 10,00 KM");
-                Assert(viewModel.Status == "Želite li razmijeniti novac?", "awaiting-choice status");
-                Assert(FindExpander(GetRoot(preview)).Visibility == Visibility.Visible, "simulator visible with controls");
-                Progress("AwaitingChoice snapshot and bindings verified.");
+                AssertButtons(preview, true, "AwaitingPayout");
+                Assert(viewModel.ReceivedAmount == "30,00 KM", "wallet total is 30,00 KM after 10+20 input");
+                Assert(viewModel.Status == "Primljeno. Pritisnite Razmijeni za isplatu.", "awaiting-payout status");
+                Assert(viewModel.SimulatorHint.Contains("Možete ubaciti još"), "wallet allows additional notes");
+                Assert(FindExpander(previewRoot).Visibility == Visibility.Visible, "simulator visible with controls");
+                Progress("30 KM wallet and AwaitingPayout bindings verified.");
 
                 var output = args.Length > 0 ? Path.GetFullPath(args[0]) :
                     Path.Combine(FindProjectRoot(), "artifacts", "ui", "changeclip-preview.png");
                 Directory.CreateDirectory(Path.GetDirectoryName(output));
                 RenderPreview(preview, output);
                 Progress("Offscreen PNG render complete.");
-                Console.WriteLine("PASS: AwaitingChoice preview written to " + output);
-                ((IDisposable)preview.DataContext).Dispose();
+                Console.WriteLine("PASS: AwaitingPayout 30,00 KM preview written to " + output);
+
+                var exchangeButton = FindButton(previewRoot, "Razmijeni");
+                exchangeButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, exchangeButton));
+                Assert(session.ExchangeCalls == 1, "Razmijeni click calls ExchangeAsync once");
+                DrainDispatcher();
+                Assert(viewModel.ReceivedAmount == "0,00 KM" &&
+                    viewModel.Status.IndexOf("Uspješno", StringComparison.OrdinalIgnoreCase) >= 0,
+                    "successful full payout resets displayed wallet to zero");
+                Assert(viewModel.CanInsertSimulatorBanknote, "simulator input is enabled again in Ready after payout");
+                DisposeWindow(preview);
+
+                var closingSession = new StubExchangeSession(new ExchangeSnapshot(ExchangeState.AwaitingPayout,
+                    "Primljeno. Pritisnite Razmijeni za isplatu.", 3000, 0, 0, true, false));
+                var closingWindow = CreateWindow(closingSession, null);
+                closingWindow.Close();
+                Assert(closingSession.ReturnCalls == 0, "closing a saved wallet never requests ReturnAsync");
 
                 var debt = new ExchangeSnapshot(ExchangeState.Debt,
                     "Dužni smo vam još 5 KM", 2000, 1500, 500, false, false, true);
@@ -125,8 +130,9 @@ namespace ChangeClip.Frontend.Tests
                 }
                 finally { DisposeWindow(noSimulatorWindow); }
 
-                Console.WriteLine("PASS: Ready/AwaitingChoice/Debt buttons and simulator visibility");
-                Console.WriteLine("PASS: button click -> ExchangeAsync and simulator input wiring");
+                Console.WriteLine("PASS: Ready/AwaitingPayout/Debt buttons and simulator visibility");
+                Console.WriteLine("PASS: wallet accumulation, one ExchangeAsync call, and zero reset");
+                Console.WriteLine("PASS: closing a saved wallet does not call ReturnAsync");
                 Console.WriteLine("PASS: unknown payout amount is presented for reconciliation");
                 Progress("All frontend scenarios complete.");
                 return 0;
@@ -179,6 +185,12 @@ namespace ChangeClip.Frontend.Tests
                 Assert(published.WaitOne(TimeSpan.FromSeconds(5)), "background Changed event completes");
             }
 
+            DrainDispatcher();
+            Layout(window);
+        }
+
+        private static void DrainDispatcher()
+        {
             var dispatcher = Dispatcher.CurrentDispatcher;
             var frame = new DispatcherFrame();
             var drained = false;
@@ -201,7 +213,6 @@ namespace ChangeClip.Frontend.Tests
             Dispatcher.PushFrame(frame);
             timeout.Stop();
             if (!drained) throw new TimeoutException("Dispatcher did not drain the Changed update within five seconds.");
-            Layout(window);
         }
 
         private static void RenderPreview(MainWindow window, string output)
@@ -354,13 +365,16 @@ namespace ChangeClip.Frontend.Tests
         public ExchangeSnapshot Snapshot { get { lock (_sync) return _snapshot; } }
         public Task StartAsync(CancellationToken cancellationToken) { return Task.CompletedTask; }
         public int ExchangeCalls { get; private set; }
+        public int ReturnCalls { get; private set; }
         public Task ExchangeAsync(CancellationToken cancellationToken)
         {
             ExchangeCalls++;
-            Publish(new ExchangeSnapshot(ExchangeState.Succeeded, "Uspješno", 1000, 1000));
+            var amount = Snapshot.ReceivedMinor;
+            Publish(new ExchangeSnapshot(ExchangeState.Ready,
+                "Uspješno. Ubacite 10 ili 20 KM.", 0, amount, 0, true, false));
             return Task.CompletedTask;
         }
-        public Task ReturnAsync(CancellationToken cancellationToken) { return Task.CompletedTask; }
+        public Task ReturnAsync(CancellationToken cancellationToken) { ReturnCalls++; return Task.CompletedTask; }
 
         public void Publish(ExchangeSnapshot snapshot)
         {
@@ -380,7 +394,13 @@ namespace ChangeClip.Frontend.Tests
         public int HopperCoins { get; set; }
         public int InsertCalls { get; private set; }
         public int LastInsertedMinor { get; private set; }
-        public void InsertBanknote(int amountMinor) { InsertCalls++; LastInsertedMinor = amountMinor; }
+        public Action<int> OnInsert { get; set; }
+        public void InsertBanknote(int amountMinor)
+        {
+            InsertCalls++;
+            LastInsertedMinor = amountMinor;
+            if (OnInsert != null) OnInsert(amountMinor);
+        }
         public void SetHopperCoins(int coins) { HopperCoins = coins; }
     }
 }

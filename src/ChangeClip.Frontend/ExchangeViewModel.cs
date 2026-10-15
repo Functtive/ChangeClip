@@ -31,7 +31,16 @@ namespace ChangeClip.Frontend
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
-        public string ReceivedAmount { get { return Format(_snapshot.ReceivedMinor); } }
+        public string ReceivedAmount
+        {
+            get
+            {
+                var amount = _snapshot.State == ExchangeState.Succeeded && _snapshot.OwedMinor == 0
+                    ? 0
+                    : _snapshot.ReceivedMinor;
+                return Format(amount);
+            }
+        }
         public string PaidAmount { get { return Format(_snapshot.PaidMinor); } }
         public string OwedAmount { get { return _snapshot.IsDebtExact ? Format(_snapshot.OwedMinor) : "Provjera"; } }
         public string Error { get { return _error; } }
@@ -39,9 +48,12 @@ namespace ChangeClip.Frontend
         {
             get
             {
-                return _simulator != null && _snapshot.State == ExchangeState.Ready
-                    ? "Simulator: ubacite 10 ili 20 KM prije klika na Razmijeni."
-                    : "";
+                if (_simulator == null) return "";
+                if (_snapshot.State == ExchangeState.Ready)
+                    return "Ubacite 10 ili 20 KM, zatim pritisnite Razmijeni.";
+                if (_snapshot.State == ExchangeState.AwaitingPayout)
+                    return "Možete ubaciti još novčanica od 10 ili 20 KM.";
+                return "";
             }
         }
         public Visibility SimulatorHintVisibility
@@ -53,7 +65,14 @@ namespace ChangeClip.Frontend
             get { return String.IsNullOrEmpty(_error) ? Visibility.Collapsed : Visibility.Visible; }
         }
         public bool CanExchange { get { return !_isBusy && _snapshot.CanExchange; } }
-        public bool CanReturn { get { return !_isBusy && _snapshot.CanReturn; } }
+        public bool CanInsertSimulatorBanknote
+        {
+            get
+            {
+                return _simulator != null && !_isBusy &&
+                    (_snapshot.State == ExchangeState.Ready || _snapshot.State == ExchangeState.AwaitingPayout);
+            }
+        }
         public bool IsPayoutInProgress
         {
             get
@@ -62,25 +81,26 @@ namespace ChangeClip.Frontend
                 return current.State == ExchangeState.Accepting || current.State == ExchangeState.PayingOut;
             }
         }
-        public bool IsAwaitingChoice
-        {
-            get { return (_session.Snapshot ?? _snapshot).State == ExchangeState.AwaitingChoice; }
-        }
-        public bool IsConfirmedReturned
-        {
-            get { return (_session.Snapshot ?? _snapshot).State == ExchangeState.Returned; }
-        }
         public Visibility SimulatorVisibility { get { return _simulator == null ? Visibility.Collapsed : Visibility.Visible; } }
 
         public string Status
         {
             get
             {
-                if (_snapshot.State == ExchangeState.Ready || _snapshot.State == ExchangeState.Initializing ||
-                    _snapshot.State == ExchangeState.Disconnected)
+                if (_snapshot.State == ExchangeState.AwaitingPayout)
+                    return "Primljeno. Pritisnite Razmijeni za isplatu.";
+                if (_snapshot.State == ExchangeState.Ready)
+                {
+                    if (!String.IsNullOrWhiteSpace(_snapshot.Message) &&
+                        _snapshot.Message.IndexOf("Uspješno", StringComparison.OrdinalIgnoreCase) >= 0)
+                        return _snapshot.Message;
                     return "Ubacite 10 ili 20 KM";
-                if (_snapshot.State == ExchangeState.AwaitingChoice || _snapshot.State == ExchangeState.Accepting)
-                    return "Želite li razmijeniti novac?";
+                }
+                if (_snapshot.State == ExchangeState.Initializing || _snapshot.State == ExchangeState.Disconnected)
+                    return "Ubacite 10 ili 20 KM";
+                if (_snapshot.State == ExchangeState.AwaitingChoice)
+                    return "Primljeno. Pritisnite Razmijeni za isplatu.";
+                if (_snapshot.State == ExchangeState.Accepting) return "Prihvat novčanice...";
                 if (_snapshot.State == ExchangeState.PayingOut) return "Isplata u toku";
                 if (_snapshot.State == ExchangeState.Succeeded) return "Uspješno";
                 if (_snapshot.State == ExchangeState.Debt)
@@ -105,22 +125,16 @@ namespace ChangeClip.Frontend
             await RunAsync(delegate { return _session.ExchangeAsync(_cancellation.Token); });
         }
 
-        public async Task ReturnAsync()
-        {
-            if (!CanReturn) return;
-            await RunAsync(delegate { return _session.ReturnAsync(_cancellation.Token); });
-        }
-
         public void InsertBanknote(int amountMinor)
         {
-            if (_simulator == null) return;
+            if (!CanInsertSimulatorBanknote) return;
             try { _simulator.InsertBanknote(amountMinor); }
             catch (Exception ex) { SetError(ex.Message); }
         }
 
         public void SetHopperCoins(int coins)
         {
-            if (_simulator == null) return;
+            if (!CanInsertSimulatorBanknote) return;
             try { _simulator.SetHopperCoins(coins); }
             catch (Exception ex) { SetError(ex.Message); }
         }
@@ -160,9 +174,6 @@ namespace ChangeClip.Frontend
             _error = String.IsNullOrWhiteSpace(message) ? "Došlo je do greške." : message;
             OnPropertyChanged("Error");
             OnPropertyChanged("ErrorVisibility");
-            OnPropertyChanged("SimulatorHint");
-            OnPropertyChanged("SimulatorHintVisibility");
-            OnPropertyChanged("ErrorVisibility");
         }
 
         private static string Format(int minor)
@@ -177,10 +188,11 @@ namespace ChangeClip.Frontend
             OnPropertyChanged("OwedAmount");
             OnPropertyChanged("Status");
             OnPropertyChanged("CanExchange");
-            OnPropertyChanged("CanReturn");
+            OnPropertyChanged("CanInsertSimulatorBanknote");
             OnPropertyChanged("IsPayoutInProgress");
-            OnPropertyChanged("IsAwaitingChoice");
-            OnPropertyChanged("IsConfirmedReturned");
+            OnPropertyChanged("SimulatorHint");
+            OnPropertyChanged("SimulatorHintVisibility");
+            OnPropertyChanged("ErrorVisibility");
             OnPropertyChanged("Error");
         }
 

@@ -30,59 +30,49 @@ namespace ChangeClip.Devices
     public sealed class SimulatedBillAcceptor : IBillAcceptor
     {
         private readonly object gate = new object();
-        private bool connected, enabled, disposed;
-        private int escrow;
-        private string noteId;
+        private bool connected, enabled, disposed, inFlight;
+        private TaskCompletionSource<bool> idle;
         public event EventHandler<BillEventArgs> BillEvent;
-        public Task ConnectAsync(CancellationToken token)
-        {
-            token.ThrowIfCancellationRequested();
-            lock (gate) { Check(); connected = true; }
-            return Task.CompletedTask;
-        }
-        public Task SetEnabledAsync(bool value, CancellationToken token)
-        {
-            token.ThrowIfCancellationRequested();
-            lock (gate) { CheckConnected(); enabled = value; }
-            return Task.CompletedTask;
-        }
+        public Task ConnectAsync(CancellationToken token) { token.ThrowIfCancellationRequested(); lock (gate) { Check(); connected = true; } return Task.CompletedTask; }
+        public Task SetEnabledAsync(bool value, CancellationToken token) { token.ThrowIfCancellationRequested(); lock (gate) { CheckConnected(); enabled = value; } return Task.CompletedTask; }
         public void InsertBanknote(int amountMinor)
         {
-            string id;
+            string id; TaskCompletionSource<bool> completion;
             lock (gate)
             {
                 CheckConnected();
                 if (!enabled) throw new InvalidOperationException("Simulator: prihvat novčanica je isključen.");
-                if (escrow != 0) throw new InvalidOperationException("Simulator: novčanica već čeka odluku.");
+                if (inFlight) throw new InvalidOperationException("Simulator: prethodna novčanica još prolazi kroz uređaj.");
                 if (amountMinor != 1000 && amountMinor != 2000) throw new ArgumentOutOfRangeException(nameof(amountMinor), "Dozvoljeno je 10 ili 20 BAM.");
-                enabled = false; escrow = amountMinor; id = noteId = Guid.NewGuid().ToString("N");
+                inFlight = true; id = Guid.NewGuid().ToString("N");
+                completion = idle = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             }
-            Emit(BillEventKind.Reading, amountMinor, id);
-            Emit(BillEventKind.Escrow, amountMinor, id);
+            try
+            {
+                Emit(BillEventKind.Reading, amountMinor, id);
+                Emit(BillEventKind.Escrow, amountMinor, id);
+                Emit(BillEventKind.Credit, amountMinor, id);
+                Emit(BillEventKind.Stacked, amountMinor, id);
+                lock (gate) { inFlight = false; completion.TrySetResult(true); }
+            }
+            catch (Exception ex) { lock (gate) { inFlight = false; completion.TrySetException(ex); } throw; }
         }
-        public Task AcceptEscrowAsync(CancellationToken token)
+        public async Task WaitForIdleAsync(CancellationToken token)
         {
-            token.ThrowIfCancellationRequested();
-            int amount; string id;
-            lock (gate) { CheckConnected(); if (escrow == 0) throw new InvalidOperationException("Nema novčanice u escrow."); amount = escrow; id = noteId; escrow = 0; }
-            Emit(BillEventKind.Credit, amount, id);
-            Emit(BillEventKind.Stacked, amount, id);
-            return Task.CompletedTask;
+            Task completion;
+            lock (gate) { token.ThrowIfCancellationRequested(); CheckConnected(); completion = idle?.Task ?? Task.CompletedTask; }
+            if (await Task.WhenAny(completion, Task.Delay(TimeSpan.FromSeconds(20), token)).ConfigureAwait(false) != completion)
+            { token.ThrowIfCancellationRequested(); throw new TimeoutException("Simulator input nije završio dispatch događaja."); }
+            await completion.ConfigureAwait(false);
         }
-        public Task ReturnEscrowAsync(CancellationToken token)
-        {
-            token.ThrowIfCancellationRequested();
-            int amount; string id;
-            lock (gate) { CheckConnected(); if (escrow == 0) throw new InvalidOperationException("Nema novčanice u escrow."); amount = escrow; id = noteId; escrow = 0; }
-            Emit(BillEventKind.Rejected, amount, id);
-            return Task.CompletedTask;
-        }
-        private void Emit(BillEventKind kind, int amount, string id) { BillEvent?.Invoke(this, new BillEventArgs(kind, amount, "BAM", "SIMULATOR", id)); }
+        // Legacy support API: autoaccept mode has no user-controlled retained escrow.
+        public Task AcceptEscrowAsync(CancellationToken token) => WaitForIdleAsync(token);
+        public Task ReturnEscrowAsync(CancellationToken token) { token.ThrowIfCancellationRequested(); return Task.FromException(new NotSupportedException("Automatski prihvaćena novčanica ne može se vratiti; simulator nema zadržani escrow.")); }
+        private void Emit(BillEventKind kind, int amount, string id) { BillEvent?.Invoke(this, new BillEventArgs(kind, amount, "BAM", "SIMULATOR - automatski prihvat", id)); }
         private void Check() { if (disposed) throw new ObjectDisposedException(nameof(SimulatedBillAcceptor)); }
         private void CheckConnected() { Check(); if (!connected) throw new InvalidOperationException("Simulator nije spojen."); }
-        public void Dispose() { lock (gate) { disposed = true; connected = enabled = false; } }
+        public void Dispose() { lock (gate) { disposed = true; connected = enabled = false; if (inFlight) idle?.TrySetException(new ObjectDisposedException(nameof(SimulatedBillAcceptor))); } }
     }
-
     public sealed class SimulatedCoinHopper : ICoinHopper
     {
         private readonly object gate = new object();

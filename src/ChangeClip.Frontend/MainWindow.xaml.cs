@@ -10,8 +10,6 @@ namespace ChangeClip.Frontend
         private readonly ExchangeViewModel _viewModel;
         private bool _started;
         private bool _disposed;
-        private bool _closeAfterReturn;
-        private bool _returnForCloseInProgress;
 
         public MainWindow(IExchangeSession session, ISimulatorControls simulator = null)
         {
@@ -34,11 +32,6 @@ namespace ChangeClip.Frontend
             await _viewModel.ExchangeAsync();
         }
 
-        private async void Return_Click(object sender, RoutedEventArgs e)
-        {
-            await _viewModel.ReturnAsync();
-        }
-
         private void Insert10_Click(object sender, RoutedEventArgs e) { _viewModel.InsertBanknote(1000); }
         private void Insert20_Click(object sender, RoutedEventArgs e) { _viewModel.InsertBanknote(2000); }
 
@@ -54,35 +47,12 @@ namespace ChangeClip.Frontend
             _viewModel.SetHopperCoins(coins);
         }
 
-        private async void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            if (_closeAfterReturn) return;
+            if (!_viewModel.IsPayoutInProgress) return;
             e.Cancel = true;
-            if (_returnForCloseInProgress) return;
-            if (_viewModel.IsPayoutInProgress)
-            {
-                MessageBox.Show(this, "Radnja s novčanicom ili isplata je u toku. Sačekajte prije zatvaranja.",
-                    "ChangeClip", MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
-            }
-            if (!_viewModel.IsAwaitingChoice) { e.Cancel = false; return; }
-
-            _returnForCloseInProgress = true;
-            try
-            {
-                await _viewModel.ReturnAsync();
-                if (_viewModel.IsConfirmedReturned)
-                {
-                    _closeAfterReturn = true;
-                    Close();
-                }
-                else
-                {
-                    MessageBox.Show(this, "Povrat novčanice nije potvrđen. Aplikacija ostaje otvorena.",
-                        "ChangeClip", MessageBoxButton.OK, MessageBoxImage.Warning);
-                }
-            }
-            finally { _returnForCloseInProgress = false; }
+            MessageBox.Show(this, "Prihvat novčanice ili isplata je u toku. Sačekajte prije zatvaranja.",
+                "ChangeClip", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void Window_Closed(object sender, EventArgs e)

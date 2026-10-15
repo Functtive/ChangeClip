@@ -1,8 +1,8 @@
 #ifndef AppVersion
-  #define AppVersion "0.1.0"
+  #define AppVersion "0.2.0"
 #endif
 #ifndef PublishDir
-  #define PublishDir "..\artifacts\portable"
+  #define PublishDir "..\artifacts\portable-0.2.0"
 #endif
 [Setup]
 AppId={{CB07D7E2-C0F8-48C9-938D-60295E311846}

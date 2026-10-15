@@ -1,7 +1,7 @@
 {
   "mode": "Simulator",
   "coinValueMinor": 100,
-  "simulatorCoins": 25,
+  "simulatorCoins": 100,
   "nv9Port": "",
   "hopperPort": "",
   "hopperAddress": 3,

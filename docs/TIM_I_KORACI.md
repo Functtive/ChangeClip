@@ -6,8 +6,8 @@ Glavni folder: C:\Users\boris.babic\Documents\Ai Assistent\04_Projects\ChangeCli
 
 | Izvršilac | Zadatak | Fajlovi koje uređuje |
 |---|---|---|
-| Asistent 01 - Sol | NV9/eSSP, Azkoyen U-II/ccTalk, simulator i USB driver priprema | src/ChangeClip.Devices, tests/ChangeClip.Devices.Tests, tools/Inspect-UsbDevices.ps1, tools/Install-UsbDrivers.ps1, docs/USB_DRIVERS.md |
-| Asistent 02 - Sol | Tok razmjene, evidencija uplata/isplata/duga i provjere logike | src/ChangeClip.Backend, tests/ChangeClip.Backend.Tests |
+| Asistent 01 - Sol | NV9 automatski prihvat i završetak tekuće novčanice, Azkoyen ccTalk, simulator i USB driver priprema | src/ChangeClip.Devices, tests/ChangeClip.Devices.Tests, tools/Inspect-UsbDevices.ps1, tools/Install-UsbDrivers.ps1, docs/USB_DRIVERS.md |
+| Asistent 02 - Sol | Sabiranje više potvrđenih novčanica, klik pokreće samo isplatu, journal bilansa/isplata/duga i provjere | src/ChangeClip.Backend, tests/ChangeClip.Backend.Tests |
 | Asistent 03 - Luna | WPF ekran navy/ljubičaste boje, jedno dugme Razmijeni, prikaz iznosa/statusa, simulator kontrole i klik/render provjere | src/ChangeClip.Frontend, osim Bootstrapper.cs, te tests/ChangeClip.Frontend.Tests |
 | Orkestrator | Zajednički interfejsi, konfiguracija, povezivanje modula, razvojni alati, build, installer, završna provjera i GitHub | src/ChangeClip.Contracts, tests/ChangeClip.Integration.Tests, Directory.Build.props, Bootstrapper.cs, solution, config, build/package skripte, installer, README i zajednička dokumentacija |
 

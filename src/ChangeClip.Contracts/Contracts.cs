@@ -8,7 +8,8 @@ namespace ChangeClip.Contracts
     public enum ExchangeState
     {
         Disconnected, Initializing, Ready, AwaitingChoice, Accepting,
-        PayingOut, Succeeded, Returned, Debt, Fault, ReconciliationRequired
+        PayingOut, Succeeded, Returned, Debt, Fault, ReconciliationRequired,
+        AwaitingPayout
     }
 
     public sealed class ExchangeSnapshot : EventArgs
@@ -58,13 +59,15 @@ namespace ChangeClip.Contracts
         public string EventId { get; private set; }
     }
 
-    // Implementations maintain escrow with HOLD until AcceptEscrowAsync/ReturnEscrowAsync.
+    // Enabled devices accept supported notes automatically. Credit is the durable money event.
+    // WaitForIdleAsync drains any note already being read after disabling new input.
     // No firmware, dataset, persistent bezel settings or programming API is exposed.
     public interface IBillAcceptor : IDisposable
     {
         event EventHandler<BillEventArgs> BillEvent;
         Task ConnectAsync(CancellationToken cancellationToken);
         Task SetEnabledAsync(bool enabled, CancellationToken cancellationToken);
+        Task WaitForIdleAsync(CancellationToken cancellationToken);
         Task AcceptEscrowAsync(CancellationToken cancellationToken);
         Task ReturnEscrowAsync(CancellationToken cancellationToken);
     }
@@ -130,7 +133,7 @@ namespace ChangeClip.Contracts
     {
         public DeviceOptions()
         {
-            Mode = "Simulator"; CoinValueMinor = 100; SimulatorCoins = 25;
+            Mode = "Simulator"; CoinValueMinor = 100; SimulatorCoins = 100;
             Nv9Port = ""; HopperPort = ""; HopperAddress = 3;
             Nv9Address = 0; HopperEcho = true; UseEncryptedSsp = true;
         }

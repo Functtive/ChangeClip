@@ -23,12 +23,12 @@ namespace ChangeClip.Devices
         private readonly Dictionary<byte, int> channels = new Dictionary<byte, int>();
         private CancellationTokenSource running;
         private Task loop;
-        private TaskCompletionSource<bool> decision;
-        private bool connected, disposed, waitingChoice, accepting, creditSeen, firstPoll = true;
-        private int amount;
-        private string noteId;
+        private readonly Nv9PollTracker tracker = new Nv9PollTracker();
+        private bool connected, disposed, intakeEnabled;
+        private TaskCompletionSource<bool> disabledIdle;
+        private int quietPolls;
         public Nv9BillAcceptor(DeviceOptions options) { this.options = options ?? throw new ArgumentNullException(nameof(options)); }
-        // The same lock owns every SDK command and escrow transition. No demo HoldCount is used.
+        // The same lock owns every SDK command and in-flight note transition. POLL automatically accepts; no HOLD waiting for a user.
         private byte[] Send(byte code, params byte[] args)
         {
             command.CommandData[0] = code;
@@ -45,7 +45,7 @@ namespace ChangeClip.Devices
                 token.ThrowIfCancellationRequested();
                 lock (gate)
                 {
-                    CheckDisposed(); if (connected) return;
+                    CheckDisposed(); if (connected) return; if (loop != null) throw new InvalidOperationException("Faulted NV9 session requires reconciliation and a new adapter instance.");
                     command.ComPort = options.Nv9Port; command.SSPAddress = options.Nv9Address;
                     command.BaudRate = 9600; command.Timeout = 500; command.RetryLevel = 1;
                     command.EncryptionStatus = false; comms.RetryOnFailedCRC(false);
@@ -73,7 +73,7 @@ namespace ChangeClip.Devices
                         ParseSetup(Send(0x05));
                         ushort mask = 0; foreach (var channel in channels) mask |= (ushort)(1 << (channel.Key - 1));
                         Send(0x02, (byte)mask, (byte)(mask >> 8));
-                        connected = true; firstPoll = true;
+                        connected = true; tracker.FirstPoll = true;
                         running = new CancellationTokenSource(); loop = Task.Run(() => PollLoopAsync(running.Token));
                     }
                     catch { comms.CloseComPort(); throw; }
@@ -82,7 +82,7 @@ namespace ChangeClip.Devices
         }
         private void ParseSetup(byte[] data)
         {
-            channels.Clear();
+            channels.Clear(); tracker.Amounts.Clear(); tracker.Currencies.Clear();
             if (data.Length < 17 || data[1] != 0) throw new NotSupportedException("NV9 adapter podržava samo banknote validator unit type 0.");
             int count = data[12]; int multiplierOffset = 13 + count * 2; int extended = multiplierOffset + 4;
             if (count < 1 || count > 16 || data.Length < extended + count * 7) throw new InvalidDataException("NV9 protocol-6 setup nije podržan ili je skraćen.");
@@ -92,27 +92,37 @@ namespace ChangeClip.Devices
             {
                 string currency = System.Text.Encoding.ASCII.GetString(data, extended + i * 3, 3);
                 int value = checked(BitConverter.ToInt32(data, extended + count * 3 + i * 4) * multiplier);
+                tracker.Amounts[(byte)(i + 1)] = value; tracker.Currencies[(byte)(i + 1)] = currency;
                 if (currency == "BAM" && (value == 1000 || value == 2000)) channels.Add((byte)(i + 1), value);
             }
             if (channels.Count == 0) throw new InvalidDataException("Ručno pripremljeni NV9 dataset nema 10/20 BAM kanale.");
         }
         public Task SetEnabledAsync(bool enabled, CancellationToken token)
         {
-            return Task.Run(() => { token.ThrowIfCancellationRequested(); lock (gate) { CheckConnected(); Send(enabled ? (byte)0x0A : (byte)0x09); } });
+            return Task.Run(() =>
+            {
+                token.ThrowIfCancellationRequested();
+                lock (gate)
+                {
+                    CheckConnected(); Send(enabled ? (byte)0x0A : (byte)0x09); intakeEnabled = enabled;
+                    if (!enabled) { quietPolls = 0; disabledIdle = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously); }
+                }
+            });
         }
-        public async Task AcceptEscrowAsync(CancellationToken token)
+        public async Task WaitForIdleAsync(CancellationToken token)
         {
             Task completion;
-            lock (gate)
+            lock (gate) { token.ThrowIfCancellationRequested(); CheckConnected(); completion = !intakeEnabled && disabledIdle != null ? disabledIdle.Task : tracker.IdleTask; }
+            var timeout = Task.Delay(TimeSpan.FromSeconds(20), token);
+            if (await Task.WhenAny(completion, timeout).ConfigureAwait(false) != completion)
             {
-                token.ThrowIfCancellationRequested(); CheckConnected();
-                if (!waitingChoice) throw new InvalidOperationException("NV9 nema novčanice koja čeka odluku.");
-                decision = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                completion = decision.Task; waitingChoice = false; accepting = true;
-                // The next loop sends POLL exactly as the documented escrow accept action.
+                token.ThrowIfCancellationRequested();
+                throw new TimeoutException("NV9 ima nepotvrđenu in-flight novčanicu; stanje nije sigurno za isplatu.");
             }
-            await WaitDecisionAsync(completion, token).ConfigureAwait(false);
+            await completion.ConfigureAwait(false);
         }
+        // Legacy support only: the running workflow autoaccepts through POLL.
+        public Task AcceptEscrowAsync(CancellationToken token) => WaitForIdleAsync(token);
         public async Task ReturnEscrowAsync(CancellationToken token)
         {
             Task completion = null;
@@ -121,23 +131,14 @@ namespace ChangeClip.Devices
                 token.ThrowIfCancellationRequested();
                 lock (gate)
                 {
-                    CheckConnected(); if (!waitingChoice) throw new InvalidOperationException("NV9 nema novčanice koja čeka odluku.");
-                    decision = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                    completion = decision.Task; // Capture under this lock: poll may clear decision before Task.Run returns.
-                    try { Send(0x08); waitingChoice = false; accepting = false; }
-                    catch (Exception ex) { decision.TrySetException(ex); throw; }
+                    CheckConnected();
+                    if (!tracker.InEscrow) throw new InvalidOperationException("NV9 nema novčanice koja se još može odbiti; automatski prihvat je radni tok.");
+                    completion = tracker.IdleTask;
+                    Send(0x08); // Explicit service action only, never invoked by the exchange engine.
                 }
             }).ConfigureAwait(false);
-            await WaitDecisionAsync(completion, token).ConfigureAwait(false);
-        }
-        private static async Task WaitDecisionAsync(Task completion, CancellationToken token)
-        {
-            var timeout = Task.Delay(TimeSpan.FromSeconds(20), token);
-            if (await Task.WhenAny(completion, timeout).ConfigureAwait(false) != completion)
-            {
-                token.ThrowIfCancellationRequested();
-                throw new TimeoutException("NV9 nije potvrdio kraj prihvata/vraćanja; stanje mora biti usklađeno.");
-            }
+            if (await Task.WhenAny(completion, Task.Delay(TimeSpan.FromSeconds(20), token)).ConfigureAwait(false) != completion)
+            { token.ThrowIfCancellationRequested(); throw new TimeoutException("NV9 nije potvrdio servisni REJECT."); }
             await completion.ConfigureAwait(false);
         }
         private async Task PollLoopAsync(CancellationToken token)
@@ -146,73 +147,38 @@ namespace ChangeClip.Devices
             {
                 while (!token.IsCancellationRequested)
                 {
-                    var events = new List<BillEventArgs>(); TaskCompletionSource<bool> completed = null;
+                    List<BillEventArgs> events; Exception fault;
                     lock (gate)
                     {
                         if (!connected || disposed) return;
-                        if (waitingChoice) Send(0x18); // Repeated HOLD replaces POLL until the explicit decision.
-                        else
+                        tracker.BeginDispatch();
+                        // Keep polling after DISABLE: an already-entered note must finish and be journaled.
+                        events = tracker.Parse(Send(0x07), out fault);
+                        if (fault != null) connected = false;
+                    }
+                    // Preserve CREDIT/STACKED evidence even when parsing a later event detects a fault.
+                    foreach (var e in events) BillEvent?.Invoke(this, e);
+                    if (fault != null) throw fault;
+                    lock (gate)
+                    {
+                        tracker.EndDispatch(); // Idle only after every backend event callback returns.
+                        if (!intakeEnabled && disabledIdle != null)
                         {
-                            ParsePoll(Send(0x07), events, ref completed);
-                            firstPoll = false;
-                            if (waitingChoice) { Send(0x18); Send(0x09); } // Hold, then block new intake before notifying the UI/backend.
+                            quietPolls = tracker.Busy ? 0 : quietPolls + 1;
+                            if (quietPolls >= 3) disabledIdle.TrySetResult(true); // Drain three fresh quiet polls after disabling intake.
                         }
                     }
-                    foreach (var e in events) BillEvent?.Invoke(this, e);
-                    completed?.TrySetResult(true);
                     await Task.Delay(200, token).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested) { }
             catch (Exception ex)
             {
-                lock (gate) { connected = false; decision?.TrySetException(ex); }
-                BillEvent?.Invoke(this, new BillEventArgs(BillEventKind.Fault, amount, "BAM", "NV9: " + ex.Message, noteId));
+                lock (gate) { connected = false; tracker.Fail(ex); disabledIdle?.TrySetException(ex); }
+                BillEvent?.Invoke(this, new BillEventArgs(BillEventKind.Fault, tracker.Amount, tracker.Currency, "NV9: " + ex.Message, tracker.NoteId));
             }
         }
-        private void ParsePoll(byte[] data, List<BillEventArgs> events, ref TaskCompletionSource<bool> completed)
-        {
-            for (int i = 1; i < data.Length; i++)
-            {
-                byte code = data[i];
-                switch (code)
-                {
-                    case 0xEF:
-                        if (++i >= data.Length) throw new InvalidDataException("NV9 READ payload nedostaje.");
-                        byte channel = data[i];
-                        if (channel == 0) events.Add(new BillEventArgs(BillEventKind.Reading));
-                        else
-                        {
-                            if (accepting || decision != null) throw new InvalidDataException("Neočekivana nova novčanica tokom odluke.");
-                            if (!channels.TryGetValue(channel, out amount)) { Send(0x08); break; }
-                            noteId = Guid.NewGuid().ToString("N"); creditSeen = false; waitingChoice = true;
-                            events.Add(new BillEventArgs(BillEventKind.Escrow, amount, "BAM", eventId: noteId));
-                        }
-                        break;
-                    case 0xEE:
-                        if (++i >= data.Length || !channels.TryGetValue(data[i], out int credited)) throw new InvalidDataException("NV9 CREDIT kanal nije podržan.");
-                        if (!accepting || credited != amount || creditSeen) throw new InvalidDataException("Neočekivan ili dupliran NV9 CREDIT; potrebno usklađivanje.");
-                        creditSeen = true; events.Add(new BillEventArgs(BillEventKind.Credit, amount, "BAM", eventId: noteId)); break;
-                    case 0xEB:
-                        if (!accepting || !creditSeen) throw new InvalidDataException("NV9 STACKED bez potvrđenog CREDIT; potrebno usklađivanje.");
-                        events.Add(new BillEventArgs(BillEventKind.Stacked, amount, "BAM", eventId: noteId));
-                        completed = decision; decision = null; accepting = waitingChoice = false; break;
-                    case 0xEC:
-                        if (accepting) throw new InvalidDataException("NV9 je odbio novčanicu tokom prihvata.");
-                        events.Add(new BillEventArgs(BillEventKind.Rejected, amount, "BAM", eventId: noteId));
-                        completed = decision; decision = null; waitingChoice = false; break;
-                    case 0xF1:
-                        if (!firstPoll) throw new InvalidDataException("NV9 je resetovan tokom sesije; potrebno usklađivanje."); break;
-                    case 0xE1: case 0xE2: case 0xE6:
-                        if (++i >= data.Length) throw new InvalidDataException("NV9 event payload nedostaje.");
-                        throw new IOException("NV9 recovery/fraud event " + code.ToString("X2") + "; ručno usklađivanje.");
-                    case 0xE0: case 0xE3: case 0xE7: case 0xE9: case 0xEA:
-                        throw new IOException("NV9 fizička greška " + code.ToString("X2"));
-                    case 0xE4: case 0xE8: case 0xED: case 0xCC: case 0xB5: case 0xB6: break;
-                    default: throw new NotSupportedException("Nepoznat NV9 poll event " + code.ToString("X2") + "; parser zaustavljen.");
-                }
-            }
-        }
+
         private void CheckDisposed() { if (disposed) throw new ObjectDisposedException(nameof(Nv9BillAcceptor)); }
         private void CheckConnected() { CheckDisposed(); if (!connected) throw new IOException("NV9 nije spojen."); }
         public void Dispose()
@@ -222,8 +188,8 @@ namespace ChangeClip.Devices
             {
                 if (disposed) return;
                 running?.Cancel();
-                try { if (connected) { if (waitingChoice) Send(0x08); Send(0x09); } } catch { }
-                disposed = true; connected = false; decision?.TrySetException(new ObjectDisposedException(nameof(Nv9BillAcceptor)));
+                try { if (connected) Send(0x09); } catch { }
+                disposed = true; connected = false; tracker.Fail(new ObjectDisposedException(nameof(Nv9BillAcceptor))); disabledIdle?.TrySetException(new ObjectDisposedException(nameof(Nv9BillAcceptor)));
                 comms.CloseComPort(); pending = loop;
             }
             if (pending != null && Task.CurrentId != pending.Id) { try { pending.Wait(1500); } catch { } }
@@ -234,6 +200,7 @@ namespace ChangeClip.Devices
         private static Task Unavailable() => Task.FromException(new NotSupportedException("NV9 hardware zahtijeva lokalni ITL SDK DLL: vendor/ITL/ITLlib.dll; build nema ITL_SDK."));
         public Task ConnectAsync(CancellationToken token) => Unavailable();
         public Task SetEnabledAsync(bool enabled, CancellationToken token) => Unavailable();
+        public Task WaitForIdleAsync(CancellationToken token) => Unavailable();
         public Task AcceptEscrowAsync(CancellationToken token) => Unavailable();
         public Task ReturnEscrowAsync(CancellationToken token) => Unavailable();
         public void Dispose() { }

@@ -6,13 +6,14 @@ NV9 se ručno programira/podešava prije upotrebe. Aplikacija preko USB-a samo u
 
 ## Tok aplikacije
 
-1. Podrazumijevani simulator radi bez spojenih uređaja. Otvoriti simulator panel i ubaciti 10 ili 20 KM.
-2. Nakon očitane novčanice aktivira se jedno glavno dugme **Razmijeni**. Klik je povezan s backend funkcijom prihvata i isplate; tokom radnje je blokiran ponovljeni klik.
-3. Prihvat se trajno evidentira, zatim hopper isplaćuje kovanice. Potpuna isplata prikazuje **Uspješno**, djelimična **Dužni smo vam još X KM**.
-4. Dug se čuva nakon restarta. Nepouzdana potvrda vodi u ručnu provjeru; isplata se automatski ne ponavlja.
-5. U hardware režimu adapteri koriste NV9 USB/eSSP i standardni Azkoyen U-II ccTalk. Stvarni uređaji sada nisu spojeni i njihov rad još nije fizički potvrđen.
+1. NV9 je omogućen dok aplikacija čeka novac. Svaka podržana novčanica automatski se prihvati i spremi; potvrđeni CREDIT odmah se trajno evidentira.
+2. Može se ubaciti više novčanica od **10 ili 20 KM**. **Primljeno** sabira njihov iznos, npr. 10 + 20 = 30 KM. Hopper se tada ne pokreće.
+3. Klik na **Razmijeni** isključuje novi prihvat i čeka završetak novčanice koja je već ušla, pa hopper isplaćuje ukupan potvrđeni iznos. Ponovljeni klik ne ponavlja isplatu.
+4. Potpuna isplata prikazuje **Uspješno**, vraća prikaz na **0,00 KM** i ponovo omogućava NV9. Djelimična isplata prikazuje i čuva **Dužni smo vam još X KM**, uz blokiran novi prihvat.
+5. Potvrđeni bilans prije klika čuva se nakon zatvaranja aplikacije. Pri restartu čeka ručni klik; nejasna ili započeta isplata zahtijeva provjeru, bez automatskog ponavljanja.
+6. Podrazumijevani simulator radi bez uređaja. Hardware adapteri koriste NV9 USB/eSSP i standardni U-II ccTalk; fizički rad na ciljnom računaru još nije potvrđen.
 
-Na glavnom ekranu nema dugmeta Vrati/Odustani/Odbaci. Dokumentirana escrow/reject funkcija ostaje u adapteru za sigurnu obradu zadržane novčanice pri zatvaranju; takvo ponašanje konkretnog NV9 treba provjeriti prije rada s novcem.
+Na glavnom ekranu nema dugmeta Vrati/Odustani/Odbaci. Radni tok ne čeka korisničku odluku u escrowu i ne vraća spremljene novčanice pri zatvaranju. Potvrđeni novac ostaje u evidenciji do isplate ili ručnog razrješenja.
 
 ## Struktura
 
@@ -38,7 +39,7 @@ Build i automatizirane provjere rade na razvojnom Windows računaru. Za stvarni 
 
 ## Pokretanje i distribucija
 
-`artifacts/ChangeClip-Setup-0.1.0.exe` instalira aplikaciju na drugi Windows računar. Portable ZIP se mora raspakovati u cijelosti, pa pokrenuti `ChangeClip.exe`. Ciljnom računaru trebaju .NET Framework 4.8 i odgovarajući USB driveri; razvojni SDK i Git nisu potrebni.
+`artifacts/ChangeClip-Setup-0.2.0.exe` instalira aplikaciju na drugi Windows računar. Portable ZIP se mora raspakovati u cijelosti, pa pokrenuti `ChangeClip.exe` u `artifacts/portable-0.2.0`. Ciljnom računaru trebaju .NET Framework 4.8 i odgovarajući USB driveri; razvojni SDK i Git nisu potrebni.
 
 ```powershell
 .\tools\Prepare-BuildTools.ps1 -WithInstaller

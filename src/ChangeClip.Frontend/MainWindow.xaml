@@ -104,18 +104,22 @@
                                Foreground="{StaticResource Muted}" Margin="0,0,0,10" />
                     <WrapPanel>
                         <Button Content="Ubaci 10 KM" Style="{StaticResource SimulatorButton}"
-                                Margin="0,0,8,8" Click="Insert10_Click" />
+                                Margin="0,0,8,8" IsEnabled="{Binding CanInsertSimulatorBanknote}"
+                                Click="Insert10_Click" />
                         <Button Content="Ubaci 20 KM" Style="{StaticResource SimulatorButton}"
-                                Margin="0,0,8,8" Click="Insert20_Click" />
+                                Margin="0,0,8,8" IsEnabled="{Binding CanInsertSimulatorBanknote}"
+                                Click="Insert20_Click" />
                     </WrapPanel>
                     <DockPanel LastChildFill="False">
                         <TextBlock Text="Zaliha kovanica" VerticalAlignment="Center"
                                    Foreground="{StaticResource Muted}" Margin="0,0,9,0" />
                         <TextBox x:Name="CoinStockBox" Width="80" Padding="8,6"
                                  Background="#10162B" Foreground="{StaticResource Ink}"
-                                 BorderBrush="{StaticResource Outline}" VerticalContentAlignment="Center" />
+                                 BorderBrush="{StaticResource Outline}" VerticalContentAlignment="Center"
+                                 IsEnabled="{Binding CanInsertSimulatorBanknote}" />
                         <Button Content="Primijeni" Style="{StaticResource SimulatorButton}"
-                                Padding="12,6" MinHeight="36" Margin="9,0,0,0" Click="ApplyCoins_Click" />
+                                Padding="12,6" MinHeight="36" Margin="9,0,0,0"
+                                IsEnabled="{Binding CanInsertSimulatorBanknote}" Click="ApplyCoins_Click" />
                     </DockPanel>
                 </StackPanel>
             </Border>

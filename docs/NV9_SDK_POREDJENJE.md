@@ -2,6 +2,8 @@
 
 Datum provjere: 2026-10-14.
 
+Aktuelni tok od verzije 0.2.0: NV9 automatski prihvata i sprema više novčanica kroz POLL; CREDIT/STACKED događaji knjiže bilans. Korisnički klik zaustavlja novi prihvat i pokreće samo hopper. Analiza HOLD/REJECT funkcija ispod ostaje dokumentacija mogućnosti SDK-a, a ne opis radnog toka aplikacije.
+
 ## Preporuka
 
 Za prvi Windows prototip koristiti lokalni ITL eSSP SDK v2.0.9 kao osnovu NV9 integracije. Najrelevantnija pronađena GitHub C# alternativa je SmileySecure.Net, ali njen eSSP transport ima dokumentirane nepoznanice koje zahtijevaju potvrdu sa stvarnim uređajem. Pronađen je i javni stari ITL developer kit u muccc/fnordload; nije dokazano identičan lokalnom paketu.
