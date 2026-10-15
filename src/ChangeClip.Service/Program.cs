@@ -136,7 +136,7 @@ namespace ChangeClip.Service
             DeviceConfiguration.WriteHardware(paths.HardwareConfig, options);
             Console.WriteLine("Sačuvana Hardware konfiguracija: " + paths.HardwareConfig);
             Console.WriteLine("NV9 " + options.Nv9Port + "; hopper " + options.HopperPort + "; kovanica " + options.CoinValueMinor + " feninga.");
-            Console.WriteLine("Pokrenite ChangeClip. Podešavanje ne programira uređaje i ne pokreće isplatu.");
+            Console.WriteLine("Pokrenite ChangeClip. Komanda configure ne programira uređaje i ne pokreće isplatu.");
         }
         private static Dictionary<string, string> Parse(string[] args)
         {

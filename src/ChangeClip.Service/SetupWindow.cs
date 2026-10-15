@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -17,29 +18,38 @@ namespace ChangeClip.Service
         private static readonly int[] CoinValues = { 5, 10, 20, 50, 100, 200 };
         private readonly RuntimePaths _paths;
         private readonly Func<DeviceOptions, CancellationToken, Task<DeviceDiscoveryResult>> _detect;
+        private readonly Func<DeviceOptions, IBillAcceptor> _billFactory;
+        private readonly Func<DeviceOptions, ICoinHopper> _hopperFactory;
         private DeviceOptions _options;
         private bool _working;
         private bool _loadedScanStarted;
         private bool _closed;
+        private bool _closing;
+        private bool _allowClose;
         private readonly CancellationTokenSource _lifetime = new CancellationTokenSource();
 
         public SetupWindow(RuntimePaths paths,
-            Func<DeviceOptions, CancellationToken, Task<DeviceDiscoveryResult>> detect = null)
+            Func<DeviceOptions, CancellationToken, Task<DeviceDiscoveryResult>> detect = null,
+            Func<DeviceOptions, IBillAcceptor> billFactory = null,
+            Func<DeviceOptions, ICoinHopper> hopperFactory = null)
         {
             _paths = paths ?? throw new ArgumentNullException(nameof(paths));
             var discovery = new DeviceDiscovery();
             _detect = detect ?? discovery.DetectAsync;
+            _billFactory = billFactory;
+            _hopperFactory = hopperFactory;
             _options = LoadOptions();
-            Title = "ChangeClip — Podešavanje";
-            Width = 720;
-            Height = 520;
-            MinWidth = 600;
-            MinHeight = 460;
+            Title = "ChangeClip — Provjera uređaja";
+            Width = 860;
+            Height = 800;
+            MinWidth = 740;
+            MinHeight = 600;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             Background = Brush("#10162B");
             FontFamily = new FontFamily("Segoe UI");
             Content = BuildContent();
             Loaded += SetupWindow_Loaded;
+            Closing += SetupWindow_Closing;
             Closed += (sender, args) => { _closed = true; _lifetime.Cancel(); };
         }
 
@@ -54,11 +64,13 @@ namespace ChangeClip.Service
         public ComboBox CoinValueComboBox { get; private set; }
         public Button FindDevicesButton { get; private set; }
         public Button SaveButton { get; private set; }
+        public Nv9TestControl Nv9Test { get; private set; }
+        public HopperTestControl HopperTest { get; private set; }
         public DeviceOptions CurrentOptions { get { return _options.Copy(); } }
 
         public async Task ScanDevicesAsync()
         {
-            if (_working || _closed) return;
+            if (_working || _closed || _closing || TestsActive) return;
             SetWorking(true);
             MessageText.Text = "Tražim povezane uređaje…";
             try
@@ -98,7 +110,7 @@ namespace ChangeClip.Service
 
         public Task SaveConfigurationAsync()
         {
-            if (_working) return Task.CompletedTask;
+            if (_working || _closed || _closing || TestsActive) return Task.CompletedTask;
             var selected = SelectedCoinValue();
             if (selected == 0)
             {
@@ -144,6 +156,37 @@ namespace ChangeClip.Service
             await ScanDevicesAsync();
         }
 
+        private async void SetupWindow_Closing(object sender, CancelEventArgs e)
+        {
+            if (_allowClose) return;
+            e.Cancel = true;
+            if (_closing) return;
+            _closing = true;
+            SetWorking(true);
+            _lifetime.Cancel();
+            MessageText.Text = "Zaustavljam uređaje i čekam završno očitanje…";
+            await Task.Yield();
+            try
+            {
+                await Task.WhenAll(Nv9Test.ShutdownAsync(), HopperTest.ShutdownAsync());
+                _allowClose = true;
+                Close();
+            }
+            catch (Exception error)
+            {
+                _closing = false;
+                SetWorking(false);
+                MessageText.Text = "Uređaji nisu završili zaustavljanje: " + error.Message;
+            }
+        }
+
+        private bool TestsActive { get { return Nv9Test.IsActive || HopperTest.IsActive; } }
+
+        private void TestStateChanged(object sender, EventArgs args)
+        {
+            UpdateActions();
+        }
+
         private FrameworkElement BuildContent()
         {
             var outer = new Border { Background = Brush("#10162B"), Padding = new Thickness(30) };
@@ -152,7 +195,8 @@ namespace ChangeClip.Service
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             outer.Child = grid;
 
             var heading = new StackPanel { Margin = new Thickness(0, 0, 0, 20) };
@@ -163,7 +207,7 @@ namespace ChangeClip.Service
             });
             heading.Children.Add(new TextBlock
             {
-                Text = "Podešavanje uređaja", FontSize = 28, FontWeight = FontWeights.Bold,
+                Text = "Provjera uređaja", FontSize = 28, FontWeight = FontWeights.Bold,
                 Foreground = Brushes.White, Margin = new Thickness(0, 3, 0, 0)
             });
             Grid.SetRow(heading, 0);
@@ -188,6 +232,19 @@ namespace ChangeClip.Service
             Grid.SetRow(deviceCard, 1);
             grid.Children.Add(deviceCard);
 
+            var tests = new Grid { Margin = new Thickness(0, 0, 0, 18) };
+            tests.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            tests.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            Nv9Test = new Nv9TestControl(() => _options.Copy(), _billFactory) { Margin = new Thickness(0, 0, 10, 0) };
+            HopperTest = new HopperTestControl(() => _options.Copy(), () => Nv9Test.StopAsync(), _hopperFactory);
+            Nv9Test.StateChanged += TestStateChanged;
+            HopperTest.StateChanged += TestStateChanged;
+            tests.Children.Add(Nv9Test);
+            Grid.SetColumn(HopperTest, 1);
+            tests.Children.Add(HopperTest);
+            Grid.SetRow(tests, 2);
+            grid.Children.Add(tests);
+
             var coinBlock = new StackPanel { Margin = new Thickness(0, 0, 0, 14) };
             coinBlock.Children.Add(new TextBlock
             {
@@ -208,7 +265,7 @@ namespace ChangeClip.Service
                 });
             SelectSavedCoinValue();
             coinBlock.Children.Add(CoinValueComboBox);
-            Grid.SetRow(coinBlock, 2);
+            Grid.SetRow(coinBlock, 3);
             grid.Children.Add(coinBlock);
 
             var actions = new Grid { Margin = new Thickness(0, 2, 0, 14) };
@@ -222,7 +279,7 @@ namespace ChangeClip.Service
             Grid.SetColumn(SaveButton, 1);
             actions.Children.Add(FindDevicesButton);
             actions.Children.Add(SaveButton);
-            Grid.SetRow(actions, 3);
+            Grid.SetRow(actions, 4);
             grid.Children.Add(actions);
 
             MessageText = new TextBlock
@@ -239,9 +296,14 @@ namespace ChangeClip.Service
                 MaxHeight = 120,
                 Margin = new Thickness(0, 0, 0, 2)
             };
-            Grid.SetRow(messageScroll, 4);
+            Grid.SetRow(messageScroll, 5);
             grid.Children.Add(messageScroll);
-            return outer;
+            return new ScrollViewer
+            {
+                Content = outer,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+            };
         }
 
         private DeviceOptions LoadOptions()
@@ -291,9 +353,17 @@ namespace ChangeClip.Service
         private void SetWorking(bool working)
         {
             _working = working;
-            FindDevicesButton.IsEnabled = !working;
-            SaveButton.IsEnabled = !working;
-            CoinValueComboBox.IsEnabled = !working;
+            UpdateActions();
+        }
+
+        private void UpdateActions()
+        {
+            bool idle = !_working && !_closing && !TestsActive;
+            FindDevicesButton.IsEnabled = idle;
+            SaveButton.IsEnabled = idle;
+            CoinValueComboBox.IsEnabled = idle;
+            Nv9Test.IsEnabled = !_working && !_closing && !HopperTest.IsActive;
+            HopperTest.IsEnabled = !_working && !_closing;
         }
 
         private static TextBlock DeviceStatusText(string text)

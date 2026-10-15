@@ -2,6 +2,8 @@
 
 Softverski build i testovi ne dokazuju fizičku USB/ccTalk komunikaciju. Ovu provjeru izvršava vlasnik na ciljnom računaru, sa stvarnim modelima i podešavanjima.
 
+Za početnu provjeru otvoriti `ChangeClip.Service.exe` dok je glavna aplikacija zatvorena. Pritisnuti **Pronađi uređaje**, zatim **Accept** i ubaciti 10 pa 20 KM: NV9 treba spremiti novčanice, a zbir pokazati 30,00 KM. Pritisnuti **Zaustavi Accept**. U hopper polje unijeti npr. 5 i pritisnuti **Dispense**: prebrojati pet fizički isplaćenih kovanica i uporediti s očitanjima u prozoru. Ponoviti s praznim hopperom i provjeriti djelimičan rezultat. Ovaj postupak testira uređaje zasebno; ne stvara bilans razmjene u glavnoj aplikaciji. Zatvoriti servisni prozor prije nastavka ispod.
+
 1. Zabilježiti tačan NV9 model/BAM dataset, standardni U-II model, apoen kovanice, ccTalk adresu, dongle i COM portove. Instalirati njihove odgovarajuće drivere.
 2. Pokrenuti aplikaciju bez ispravnih portova ili sa odspojenim uređajem: prijem novca i Razmijeni trebaju ostati blokirani uz objašnjenje.
 3. Podesiti uređaje i napuniti hopper. Pokrenuti aplikaciju: potvrditi povezivanje i stvarno osvjetljenje bežela nakon omogućavanja NV9.

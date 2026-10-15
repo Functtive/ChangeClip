@@ -1,9 +1,11 @@
-# Instalacija ChangeClip 0.4.0
+# Instalacija glavne aplikacije ChangeClip
 
-1. Na ciljnom Windows 10/11 računaru pokrenuti `ChangeClip-Setup-0.4.0.exe`. Potreban je .NET Framework 4.8. Alternativa je raspakovati cijeli portable ZIP.
+1. Na ciljnom Windows 10/11 računaru pokrenuti `ChangeClip-Setup-0.4.0.exe` iz sačuvane arhive 0.4.0. Potreban je .NET Framework 4.8. Alternativa je raspakovati cijeli portable ZIP.
 2. U Start meniju otvoriti **ChangeClip - Podesavanje**, ili dvokliknuti **ChangeClip.Service.exe** u instalacijskom folderu. Otvara se normalan prozor.
 3. Izabrati stvarni apoen kovanice i kliknuti **Sačuvaj**. Podešavanje se može sačuvati i dok uređaji nisu povezani.
 4. Pokrenuti **ChangeClip**. Aplikacija sama traži NV9 i hopper, provjerava njihov protokol i koristi pronađene COM portove. Ako uređaji nisu spojeni, čeka njihovo priključivanje. Nije potrebno ručno unositi COM3/COM4.
+
+Za zasebnu provjeru uređaja raspakovati `ChangeClip-Provjera-0.5.0.zip` i otvoriti `ChangeClip.Provjera.exe`. Dugmad **Accept** i **Dispense** opisana su u `PROVJERA_UREDJAJA.md`. Zatvoriti taj alat prije pokretanja glavne aplikacije.
 
 NV9 se prije upotrebe ručno priprema za BAM i SSP/eSSP. Softver ne programira firmware ili dataset. Za USB i dongle mora biti instaliran odgovarajući driver prema `USB_DRIVERS.md`. COM je oznaka serijske veze u Windowsu, a ne broj fizičkog USB priključka.
 

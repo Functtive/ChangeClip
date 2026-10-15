@@ -21,9 +21,14 @@ internal static class Program
     {
         string root = Path.Combine(Path.GetTempPath(), "ChangeClip-service-" + Guid.NewGuid().ToString("N"));
         var application = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        SynchronizationContext.SetSynchronizationContext(
+            new System.Windows.Threading.DispatcherSynchronizationContext(application.Dispatcher));
         try
         {
             SetupWindowChecks(root);
+            Console.WriteLine("PASS: " + Nv9TestChecks.Run(root) + " NV9 Accept, confirmed notes, deduplication and shutdown checks.");
+            HopperTestChecks.Run(root);
+            DeviceTestWindowChecks.Run(root);
             var paths = new RuntimePaths(root);
             Call(false, "configure", "--data-root", root, "--nv9-port", "COM3", "--hopper-port", "COM3", "--coin-value", "100");
             Assert(!File.Exists(paths.HardwareConfig), "invalid configuration does not create file");
@@ -99,6 +104,8 @@ internal static class Program
         Assert(window.Nv9StatusText.Text.Contains("Nije pronađen") &&
             window.HopperStatusText.Text.Contains("Nije pronađen"), "missing hardware has visible status lines");
         Assert(window.CoinValueComboBox.Items.Count == 6, "coin denomination list contains six real values");
+        Assert(window.Nv9Test != null && window.HopperTest != null,
+            "setup window contains real NV9 and hopper test controls");
         var values = window.CoinValueComboBox.Items.Cast<ComboBoxItem>().Select(x => (int)x.Tag).ToArray();
         Assert(values.SequenceEqual(new[] { 5, 10, 20, 50, 100, 200 }), "coin denomination choices are in fenings");
 
@@ -139,10 +146,10 @@ internal static class Program
         Assert(rejected, "invalid denomination is rejected by hardware validation");
 
         var content = (FrameworkElement)window.Content;
-        content.Measure(new Size(720, 520));
-        content.Arrange(new Rect(0, 0, 720, 520));
+        content.Measure(new Size(860, 800));
+        content.Arrange(new Rect(0, 0, 860, 800));
         content.UpdateLayout();
-        var bitmap = new RenderTargetBitmap(720, 520, 96, 96, PixelFormats.Pbgra32);
+        var bitmap = new RenderTargetBitmap(860, 800, 96, 96, PixelFormats.Pbgra32);
         bitmap.Render(content);
         var projectRoot = FindProjectRoot();
         var preview = Path.Combine(projectRoot, "artifacts", "ui", "changeclip-setup-preview.png");

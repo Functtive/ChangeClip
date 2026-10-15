@@ -17,13 +17,15 @@ if (-not $HardwareOnly) {
         }
     }
 }
-foreach ($taskProject in @('tests\ChangeClip.Frontend.Tests\ChangeClip.Frontend.Tests.csproj','src\ChangeClip.Service\ChangeClip.Service.csproj')) {
+foreach ($taskProject in @('tests\ChangeClip.Frontend.Tests\ChangeClip.Frontend.Tests.csproj','tests\ChangeClip.Service.Tests\ChangeClip.Service.Tests.csproj')) {
     & $taskDotnet build (Join-Path $taskRoot $taskProject) -c Release -p:RequireHardware=true --nologo
     if ($LASTEXITCODE -ne 0) { throw "Hardware build nije uspio: $taskProject" }
 }
 if (-not $SkipTests) {
-    & (Join-Path $taskRoot 'tests\ChangeClip.Frontend.Tests\bin\Hardware\Release\net48\ChangeClip.Frontend.Tests.exe')
-    if ($LASTEXITCODE -ne 0) { throw 'Provjere korisničkog hardware interfejsa nisu prošle.' }
+    foreach ($taskTest in @('ChangeClip.Frontend.Tests','ChangeClip.Service.Tests')) {
+        & (Join-Path $taskRoot "tests\$taskTest\bin\Hardware\Release\net48\$taskTest.exe")
+        if ($LASTEXITCODE -ne 0) { throw "Provjere korisničkog hardware izdanja nisu prošle: $taskTest" }
+    }
 }
 $taskCapabilityText = & (Join-Path $PSScriptRoot 'Verify-Package.ps1') -PackageRoot (Join-Path $taskRoot 'src\ChangeClip.Service\bin\Hardware\Release\net48') -RuntimeOnly
 $taskCapability = $taskCapabilityText | ConvertFrom-Json

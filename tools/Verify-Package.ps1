@@ -1,8 +1,9 @@
-param([string]$PackageRoot = (Split-Path -Parent $PSScriptRoot), [switch]$RuntimeOnly)
+param([string]$PackageRoot = (Split-Path -Parent $PSScriptRoot), [switch]$RuntimeOnly,
+    [ValidateSet('ChangeClip.Service.exe','ChangeClip.Provjera.exe')][string]$ExecutableName = 'ChangeClip.Service.exe')
 $ErrorActionPreference = 'Stop'
 $taskRoot = [IO.Path]::GetFullPath($PackageRoot).TrimEnd('\')
 function Read-ChangeClipRuntime {
-    $taskInfo = [Diagnostics.ProcessStartInfo]::new((Join-Path $taskRoot 'ChangeClip.Service.exe'), 'capabilities')
+    $taskInfo = [Diagnostics.ProcessStartInfo]::new((Join-Path $taskRoot $ExecutableName), 'capabilities')
     $taskInfo.UseShellExecute = $false
     $taskInfo.RedirectStandardOutput = $true
     $taskInfo.RedirectStandardError = $true
@@ -22,6 +23,10 @@ function Read-ChangeClipRuntime {
 }
 if ($RuntimeOnly) { Read-ChangeClipRuntime; return }
 $taskManifest = Get-Content -LiteralPath (Join-Path $taskRoot 'manifest.json') -Raw | ConvertFrom-Json
+if ($taskManifest.executableName) {
+    if ($taskManifest.executableName -notin @('ChangeClip.Service.exe','ChangeClip.Provjera.exe')) { throw 'Nepodržan izvršivi fajl u manifestu.' }
+    $ExecutableName = $taskManifest.executableName
+}
 $taskExpected = @('manifest.json')
 foreach ($taskFile in $taskManifest.files) {
     $taskPath = [IO.Path]::GetFullPath((Join-Path $taskRoot $taskFile.path))

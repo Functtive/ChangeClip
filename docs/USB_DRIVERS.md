@@ -1,6 +1,6 @@
 # USB/COM priprema na ciljnom računaru
 
-Provjereno 2026-10-15, izdanje 0.4.0. NV9 i Azkoyen nisu spojeni na razvojni računar. Hardware komunikacija i fizička isplata nisu testirane. Aplikacija se instalira na drugi Windows računar; drivere i COM portove treba provjeriti tamo.
+Provjereno 2026-10-15, izdanje 0.5.0. NV9 i Azkoyen nisu spojeni na razvojni računar. Hardware komunikacija i fizička isplata nisu testirane. Aplikacija se instalira na drugi Windows računar; drivere i COM portove treba provjeriti tamo.
 
 ## Razvojni i radni režim
 
