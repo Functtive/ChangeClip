@@ -25,8 +25,7 @@ if (-not $SkipTests) {
     & (Join-Path $taskRoot 'tests\ChangeClip.Frontend.Tests\bin\Hardware\Release\net48\ChangeClip.Frontend.Tests.exe')
     if ($LASTEXITCODE -ne 0) { throw 'Provjere korisničkog hardware interfejsa nisu prošle.' }
 }
-$taskCapabilityText = & (Join-Path $taskRoot 'src\ChangeClip.Service\bin\Hardware\Release\net48\ChangeClip.Service.exe') capabilities
-if ($LASTEXITCODE -ne 0) { throw 'Hardware runtime provjera nije prošla.' }
+$taskCapabilityText = & (Join-Path $PSScriptRoot 'Verify-Package.ps1') -PackageRoot (Join-Path $taskRoot 'src\ChangeClip.Service\bin\Hardware\Release\net48') -RuntimeOnly
 $taskCapability = $taskCapabilityText | ConvertFrom-Json
 if (!$taskCapability.nv9Runtime -or $taskCapability.simulatorCompiled) { throw 'Korisnički build nema ispravan hardware adapter.' }
 $taskCapabilityText

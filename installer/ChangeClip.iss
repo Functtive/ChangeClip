@@ -25,6 +25,7 @@ RestartApplications=no
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 [Icons]
 Name: "{group}\ChangeClip"; Filename: "{app}\ChangeClip.exe"
+Name: "{group}\ChangeClip - Podesavanje"; Filename: "{app}\ChangeClip.Service.exe"
 Name: "{autodesktop}\ChangeClip"; Filename: "{app}\ChangeClip.exe"
 [Run]
 Filename: "{app}\ChangeClip.exe"; Description: "Pokreni ChangeClip"; Flags: nowait postinstall skipifsilent

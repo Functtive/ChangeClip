@@ -15,6 +15,7 @@ internal static class Program
     private sealed class ImmediateProgress : IProgress<int> { public readonly List<int> Values = new List<int>(); public void Report(int value) { Values.Add(value); } }
     private static async Task Run()
     {
+        checks += await DiscoveryTests.Run();
         var deviceAssembly = typeof(DeviceFactory).Assembly;
         bool referencesItl = deviceAssembly.GetReferencedAssemblies().Any(a => a.Name.Equals("ITLlib", StringComparison.OrdinalIgnoreCase));
         Check(DeviceFactory.Nv9RuntimeAvailable == referencesItl, "NV9 capability must agree with compiled runtime reference metadata; no port probing.");

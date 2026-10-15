@@ -33,8 +33,7 @@ foreach ($taskName in @('Inspect-UsbDevices.ps1','Install-UsbDrivers.ps1','Verif
 foreach ($taskName in @('INSTALACIJA.md','USB_DRIVERS.md','SERVIS.md','HARDWARE_TEST.md')) {
     Copy-Item -LiteralPath (Join-Path $taskRoot "docs\$taskName") -Destination $taskPortable
 }
-$taskCapabilityText = & (Join-Path $taskPortable 'ChangeClip.Service.exe') capabilities
-if ($LASTEXITCODE -ne 0) { throw 'Zapakovani runtime nije izvršiv.' }
+$taskCapabilityText = & (Join-Path $PSScriptRoot 'Verify-Package.ps1') -PackageRoot $taskPortable -RuntimeOnly
 $taskCapability = $taskCapabilityText | ConvertFrom-Json
 if (!$taskCapability.nv9Runtime -or $taskCapability.simulatorCompiled -or $taskCapability.version -ne ($taskVersion + '.0')) { throw 'Zapakovano izdanje nije produkcijski hardware build očekivane verzije.' }
 $taskFiles = @(Get-ChildItem -LiteralPath $taskPortable -File -Recurse | Sort-Object FullName | ForEach-Object {

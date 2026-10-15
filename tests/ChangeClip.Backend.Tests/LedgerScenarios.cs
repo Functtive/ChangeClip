@@ -93,6 +93,63 @@ namespace ChangeClip.Backend.Tests
             InDirectory(ExplicitVerifiedReceipt);
             InDirectory(DisposeLatePayoutDoesNotWrite);
             InDirectory(ResolvedNeedsReceipt);
+            StartupReadAndDisposeAreSerialized();
+        }
+        private static void StartupReadAndDisposeAreSerialized()
+        {
+            using (var store = new BlockingStartupStore())
+            using (var disposeEntered = new ManualResetEventSlim(false))
+            {
+                var session = new ExchangeService(new Acceptor(), new Hopper(), store, 100);
+                var start = Task.Run(() => session.StartAsync(None));
+                Task closing = null;
+                try
+                {
+                    Check(store.ReadEntered.Wait(TimeSpan.FromSeconds(4)), "Startup did not enter controlled journal read");
+                    closing = Task.Run(() =>
+                    {
+                        disposeEntered.Set();
+                        session.Dispose();
+                        Interlocked.Exchange(ref store.DisposeReturned, 1);
+                    });
+                    Check(disposeEntered.Wait(TimeSpan.FromSeconds(4)), "Concurrent Dispose did not start");
+                    Check(!closing.Wait(TimeSpan.FromMilliseconds(75)), "Dispose returned while startup ReadAll still owned a pending write");
+                    Check(Volatile.Read(ref store.Writes) == 0, "Controlled ReadAll wrote before its release event");
+                }
+                finally
+                {
+                    // Release even after an assertion failure so neither worker can escape the fixture.
+                    store.AllowRead.Set();
+                    start.GetAwaiter().GetResult();
+                    if (closing != null) closing.GetAwaiter().GetResult();
+                    else session.Dispose();
+                }
+                Check(Volatile.Read(ref store.Writes) == 1 && Volatile.Read(ref store.WritesAfterDispose) == 0,
+                    "Startup migration/write occurred after Dispose returned");
+                Thread.Sleep(25);
+                Check(Volatile.Read(ref store.Writes) == 1 && Volatile.Read(ref store.WritesAfterDispose) == 0,
+                    "A late startup continuation wrote after shutdown completed");
+            }
+        }
+        private sealed class BlockingStartupStore : ITransactionStore, IDisposable
+        {
+            public readonly ManualResetEventSlim ReadEntered = new ManualResetEventSlim(false);
+            public readonly ManualResetEventSlim AllowRead = new ManualResetEventSlim(false);
+            public int DisposeReturned, Writes, WritesAfterDispose;
+            public IReadOnlyList<TransactionRecord> ReadAll()
+            {
+                ReadEntered.Set();
+                if (!AllowRead.Wait(TimeSpan.FromSeconds(5))) throw new TimeoutException("Controlled startup journal read was not released");
+                RecordWrite(); // Models migration/receipt recovery performed inside ReadAll.
+                return new TransactionRecord[0];
+            }
+            public void Save(TransactionRecord transaction) { RecordWrite(); }
+            private void RecordWrite()
+            {
+                Interlocked.Increment(ref Writes);
+                if (Volatile.Read(ref DisposeReturned) != 0) Interlocked.Increment(ref WritesAfterDispose);
+            }
+            public void Dispose() { ReadEntered.Dispose(); AllowRead.Dispose(); }
         }
         private static void LedgerHistoryAndCopies(string root)
         {
@@ -208,7 +265,7 @@ namespace ChangeClip.Backend.Tests
             var store = new LedgerStore(root); var bill = new Acceptor(); var hopper = new DelayedPayoutHopper();
             var service = new ExchangeService(bill, hopper, store, 100); service.StartAsync(None).GetAwaiter().GetResult(); bill.Insert(1000);
             var exchange = service.ExchangeAsync(None); Check(!exchange.IsCompleted && hopper.Calls == 1, "Forced-shutdown fixture did not pause active payout");
-            service.Dispose(); var path = Directory.GetFiles(Path.Combine(root, "transactions")).Single(); var durableAtReturn = File.ReadAllBytes(path);
+            service.Dispose(); var path = Directory.GetFiles(Path.Combine(root, "transactions"), "*.json").Single(); var durableAtReturn = File.ReadAllBytes(path);
             ExpectFailure(() => hopper.Progress.Report(7), "Late progress after Dispose was not rejected");
             hopper.Completion.SetResult(new PayoutResult(10, 7, PayoutOutcome.Completed)); exchange.GetAwaiter().GetResult();
             Check(durableAtReturn.SequenceEqual(File.ReadAllBytes(path)) && store.ReadAll().Single().Stage == TransactionStages.ReconciliationRequired && store.ReadAll().Single().PaidMinor == 0, "Late payout continuation modified journal after Dispose returned");

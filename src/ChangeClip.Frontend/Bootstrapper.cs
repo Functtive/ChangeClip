@@ -33,6 +33,8 @@ namespace ChangeClip.Frontend
 #endif
                 if (!File.Exists(config)) File.Copy(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config", exampleName), config, false);
                 var options = DeviceConfiguration.Read(config);
+                if (options.CoinValueMinor == 0)
+                    throw new InvalidOperationException("Otvorite ChangeClip.Service dvoklikom i izaberite apoen kovanice.");
 #if HARDWARE_RELEASE
                 DeviceOptionsValidator.Validate(options, requireHardware: true);
                 if (!DeviceFactory.Nv9RuntimeAvailable) throw new InvalidOperationException("Izdanje nema ugrađen NV9 adapter. Ponovo instalirajte potpuno izdanje.");
@@ -42,6 +44,13 @@ namespace ChangeClip.Frontend
                 bool simulator = string.Equals(options.Mode, "Simulator", StringComparison.OrdinalIgnoreCase);
                 string dataRoot = simulator ? Path.Combine(paths.Root, "simulator", "data") : paths.HardwareData;
                 var store = new LedgerStore(Path.Combine(dataRoot, "ledger-v3"), Path.Combine(dataRoot, "transactions.json"));
+                if (!simulator && options.AutoDetectPorts)
+                {
+                    var discovery = new DeviceDiscovery();
+                    var automatic = new AutomaticExchangeSession(options, discovery.DetectAsync,
+                        resolved => CreateHardwareSession(resolved, store));
+                    return Attach(new MainWindow(automatic));
+                }
                 var devices = DeviceFactory.Create(options);
                 var session = new ExchangeService(devices.BillAcceptor, devices.Hopper, store, options.CoinValueMinor);
                 return Attach(new MainWindow(session, devices.Simulator));
@@ -49,8 +58,15 @@ namespace ChangeClip.Frontend
             catch (Exception error)
             {
                 return Attach(new MainWindow(new ConfigurationFaultSession(
-                    "Uređaji nisu spremni. " + error.Message + " Zatvorite aplikaciju i podesite uređaje pomoću ChangeClip.Service configure. Uputstvo je u SERVIS.md.")));
+                    "Uređaji nisu spremni. " + error.Message +
+                    (error.Message.Contains("Otvorite ChangeClip.Service") ? "" : " Otvorite ChangeClip.Service dvoklikom za servisnu provjeru."))));
             }
+        }
+        private static IExchangeSession CreateHardwareSession(DeviceOptions options, ITransactionStore store)
+        {
+            var devices = DeviceFactory.Create(options);
+            try { return new ExchangeService(devices.BillAcceptor, devices.Hopper, store, options.CoinValueMinor); }
+            catch { devices.BillAcceptor.Dispose(); devices.Hopper.Dispose(); throw; }
         }
         private static MainWindow Attach(MainWindow window)
         {

@@ -1,37 +1,24 @@
-# Instalacija ChangeClip 0.3.0
+# Instalacija ChangeClip 0.4.0
 
-1. Na ciljnom Windows 10/11 računaru pokrenuti `ChangeClip-Setup-0.3.0.exe`. Installer provjerava .NET Framework 4.8; dodatni razvojni alati nisu potrebni. Alternativa je raspakovati cijeli `ChangeClip-Portable-0.3.0.zip` i pokrenuti `ChangeClip.exe`.
-2. Ručno pripremiti NV9 za BAM i odgovarajući SSP/eSSP protokol. Aplikacija ne mijenja firmware ili dataset.
-3. Instalirati odgovarajuće potpisane drivere prema `USB_DRIVERS.md`. NV9 i USB–ccTalk dongle trebaju zasebne COM portove. Uređaji se moraju napajati prema njihovoj dokumentaciji; USB dongle nije potvrda napajanja hoppera.
-4. Zatvoriti ChangeClip. U PowerShellu otvorenom u instalacijskom folderu pokrenuti servisnu konfiguraciju. Ovo je primjer za kovanicu od 1 KM; zamijeniti portove i apoen stvarnim vrijednostima:
+1. Na ciljnom Windows 10/11 računaru pokrenuti `ChangeClip-Setup-0.4.0.exe`. Potreban je .NET Framework 4.8. Alternativa je raspakovati cijeli portable ZIP.
+2. U Start meniju otvoriti **ChangeClip - Podesavanje**, ili dvokliknuti **ChangeClip.Service.exe** u instalacijskom folderu. Otvara se normalan prozor.
+3. Izabrati stvarni apoen kovanice i kliknuti **Sačuvaj**. Podešavanje se može sačuvati i dok uređaji nisu povezani.
+4. Pokrenuti **ChangeClip**. Aplikacija sama traži NV9 i hopper, provjerava njihov protokol i koristi pronađene COM portove. Ako uređaji nisu spojeni, čeka njihovo priključivanje. Nije potrebno ručno unositi COM3/COM4.
 
-```powershell
-.\ChangeClip.Service.exe configure --nv9-port COM3 --hopper-port COM4 --coin-value 100
-.\ChangeClip.Service.exe status
-.\ChangeClip.exe
-```
+NV9 se prije upotrebe ručno priprema za BAM i SSP/eSSP. Softver ne programira firmware ili dataset. Za USB i dongle mora biti instaliran odgovarajući driver prema `USB_DRIVERS.md`. COM je oznaka serijske veze u Windowsu, a ne broj fizičkog USB priključka.
 
-`coin-value` je u feningima: 50 = 0,50 KM, 100 = 1 KM, 200 = 2 KM. Mora tačno dijeliti 10 i 20 KM. Bez eksplicitnog apoena i stvarnih portova aplikacija ne uključuje prijem novca.
+NV9 koristi ITL biblioteku i SSP/eSSP; standardni Azkoyen U-II koristi ccTalk preko USB–ccTalk donglea. Automatsko traženje čita identifikaciju i status, bez uključivanja prijema i bez pokretanja isplate. Sam naziv USB donglea nije dokaz da je spojen hopper. Ako je pronađeno više odgovarajućih uređaja ili nema jasnog odgovora, aplikacija ne bira nasumično port.
 
-Konfiguracija: `%LocalAppData%\ChangeClip\device.hardware.json`. Uobičajeni dodatni parametri: `--hopper-address 3`, `--hopper-echo true`, `--nv9-address 0`, `--encrypted-ssp true`. Vrijednosti moraju odgovarati stvarnim uređajima. NV9 ključ, ako je promijenjen pri ručnoj pripremi, unosi se lokalno kao `nv9FixedKeyHex` (16 hex znakova) u konfiguraciju; ne objavljivati ga na Gitu.
+Apoen kovanice bira korisnik jer ga program ne može pouzdano zaključiti iz generičkog donglea. Portovi se otkrivaju ponovo, pa promijenjena COM oznaka nakon premještanja USB kabla ne zahtijeva ručni unos. Podržan je standardni U-II; Encrypted/PIN varijanta nije implementirana.
 
-Podržan adapter hoppera koristi standardni U-II ccTalk. Encrypted/PIN U-II se ne pretpostavlja kompatibilnim. Tačan model, COM portovi, dongle echo i apoen utvrđuju se na ciljnom računaru.
+Konfiguracija je u `%LocalAppData%\ChangeClip\device.hardware.json`. `autoDetectPorts` je podrazumijevano `true`. Napredne postavke SSP adrese, ključa i ccTalk adrese moraju odgovarati ručno pripremljenim uređajima; normalni prozor ne mijenja te postavke. Uređaje i servis pokretati pod istim Windows nalogom.
 
-Na prvom pokretanju nepotpune postavke daju jasnu poruku na ekranu. Nakon podešavanja ponovo pokrenuti aplikaciju. Stara `device.local.json` razvojna konfiguracija se ne koristi u korisničkom izdanju.
+Ako je ChangeClip otvoren, prozor za podešavanje se otvara, ali traženje uređaja i čuvanje postavki traže da se glavna aplikacija prvo zatvori. Time dva programa ne upravljaju istim portovima istovremeno.
 
-## Evidencija i nadogradnja
+## Prekid i evidencija
 
-Evidencija je u `%LocalAppData%\ChangeClip\hardware\data\ledger-v3`. Svaka transakcija ima vlastiti atomski JSON zapis. Stari `hardware\data\transactions.json`, ako postoji, uvozi se idempotentno i ostaje sačuvan. Konflikt ili neispravni podaci blokiraju rad radi provjere.
+Evidencija ostaje u `%LocalAppData%\ChangeClip\hardware\data\ledger-v3`. Nadogradnja i deinstalacija je ne brišu. Stari `transactions.json` ostaje sačuvan pri uvozu.
 
-Puna isplata vraća ekran na nulu. Poznata nedovoljna zaliha zaustavlja novi prijem; nakon dopune ponovo pokrenuti aplikaciju. Nepoznata zaliha ne prikazuje izmišljeni broj kovanica; nepotpuna isplata ostaje dug. Dopuna hoppera ne briše dug. Za otvorene naloge pratiti `SERVIS.md`.
+Ponovno automatsko traženje služi čekanju uređaja i prekidu veze prije prvog primljenog novca u sesiji. Nakon primljenog novca, duga ili neizvjesne isplate nema automatskog ponavljanja novčanog naloga; potreban je restart ili postupak iz `SERVIS.md`. Potvrđeni bilans prije isplate čuva se i nakon restarta čeka ručni klik.
 
-Installer/deinstalacija ne brišu korisničku evidenciju. Koristiti jedan Windows korisnički nalog za uređaj; zapisi i zaštita od druge instance vezani su za taj nalog. Prije selidbe na drugi računar ili drugi nalog napraviti kopiju kompletnog `%LocalAppData%\ChangeClip` dok je aplikacija zatvorena.
-
-## Provjera paketa
-
-```powershell
-.\tools\Verify-Package.ps1
-.\ChangeClip.Service.exe capabilities
-```
-
-Provjera zahtijeva ugrađeni NV9 adapter, odsustvo simulatora i slaganje fajlova sa SHA256 manifestom. Manifest otkriva slučajnu izmjenu fajlova; nije digitalni potpis izdavača. Prije rada s novcem izvršiti `HARDWARE_TEST.md`.
+Sadržaj paketa provjerava `tools/Verify-Package.ps1`. Prije stvarnog rada vlasnik provjerava konkretne uređaje prema `HARDWARE_TEST.md`.

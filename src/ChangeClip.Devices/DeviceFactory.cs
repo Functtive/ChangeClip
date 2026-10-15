@@ -41,7 +41,10 @@ namespace ChangeClip.Devices
                 return new DeviceBundle(bill, hopper, new SimulatorControls(bill, hopper));
             }
 #endif
-            return new DeviceBundle(new Nv9BillAcceptor(options), new AzkoyenCoinHopper(options));
+            var resolved = options.Copy();
+            resolved.AutoDetectPorts = false;
+            DeviceOptionsValidator.Validate(resolved, requireHardware: true);
+            return new DeviceBundle(new Nv9BillAcceptor(resolved), new AzkoyenCoinHopper(resolved));
         }
     }
 }

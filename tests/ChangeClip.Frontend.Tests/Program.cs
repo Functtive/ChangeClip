@@ -25,6 +25,7 @@ namespace ChangeClip.Frontend.Tests
             Progress("App.xaml initialized.");
             try
             {
+                AutomaticConnectionScenarios.RunAsync().GetAwaiter().GetResult();
 #if HARDWARE_RELEASE
                 return RunHardwareScenarios(args);
 #else

@@ -1,5 +1,7 @@
 # Servis i podmirenje otvorenih zapisa
 
+Dvoklik na `ChangeClip.Service.exe` otvara prozor za automatsko traženje uređaja i izbor apoena kovanice. To je program za podešavanje, a ne Windows pozadinski servis. Apoen se može sačuvati prije priključivanja uređaja. Ispod su dodatne komandne funkcije za pregled evidencije i podmirenje.
+
 Zatvoriti ChangeClip prije servisnih komandi. Aplikacija i servis koriste istu zaštitu od istovremenog rada. Pokretati pod istim Windows nalogom koji koristi aplikaciju.
 
 ```powershell

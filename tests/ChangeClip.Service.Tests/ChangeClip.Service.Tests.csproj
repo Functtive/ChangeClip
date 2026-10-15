@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <PropertyGroup><OutputType>Exe</OutputType><UseWPF>true</UseWPF></PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\ChangeClip.Service\ChangeClip.Service.csproj" />
     <ProjectReference Include="..\..\src\ChangeClip.Backend\ChangeClip.Backend.csproj" />

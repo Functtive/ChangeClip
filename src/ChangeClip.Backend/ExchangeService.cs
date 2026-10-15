@@ -90,10 +90,14 @@ namespace ChangeClip.Backend
             using (var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token))
             try
             {
-                lock (sync) { if (started) return; Publish(ExchangeState.Initializing, "Povezivanje uređaja..."); }
-                var records = store.ReadAll();
                 lock (sync)
                 {
+                    if (started || disposed || disposing) return;
+                    Publish(ExchangeState.Initializing, "Povezivanje uređaja...");
+                    if (disposed || disposing) return;
+                    // ReadAll can migrate legacy records or finish a durable receipt. Keep it
+                    // inside the shutdown fence so it cannot write after Dispose releases ownership.
+                    var records = store.ReadAll();
                     foreach (var row in records)
                     {
                         if (!string.IsNullOrEmpty(row.CreditEventId)) creditIds.Add(row.CreditEventId);

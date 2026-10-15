@@ -4,8 +4,10 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Json;
 using System.Security.Principal;
+using System.Text;
 using ChangeClip.Backend;
 using ChangeClip.Contracts;
 using ChangeClip.Devices;
@@ -14,10 +16,37 @@ namespace ChangeClip.Service
 {
     internal static class Program
     {
+        [STAThread]
         private static int Main(string[] args)
         {
-            try { Console.OutputEncoding = System.Text.Encoding.UTF8; return Run(args); }
+            if (ShouldOpenSetupWindow(args))
+            {
+                var application = new System.Windows.Application
+                {
+                    ShutdownMode = System.Windows.ShutdownMode.OnMainWindowClose
+                };
+                return application.Run(new SetupWindow(new RuntimePaths()));
+            }
+            try { InitializeCommandOutput(); return Run(args); }
             catch (Exception error) { Console.Error.WriteLine("GREŠKA: " + error.Message); return 1; }
+        }
+
+        public static bool ShouldOpenSetupWindow(string[] args)
+        {
+            return SetupWindow.IsDefaultLaunch(args);
+        }
+        [DllImport("kernel32.dll")] private static extern IntPtr GetStdHandle(int standardHandle);
+        [DllImport("kernel32.dll")] private static extern uint GetFileType(IntPtr handle);
+        [DllImport("kernel32.dll")] private static extern bool AttachConsole(uint processId);
+        private static void InitializeCommandOutput()
+        {
+            // A WinExe has no console on double-click. Preserve redirected pipes for CLI tools,
+            // or attach to the invoking console when arguments were supplied interactively.
+            uint outputType = GetFileType(GetStdHandle(-11));
+            if (outputType != 1 && outputType != 3) AttachConsole(uint.MaxValue);
+            var encoding = new UTF8Encoding(false);
+            Console.SetOut(new StreamWriter(Console.OpenStandardOutput(), encoding) { AutoFlush = true });
+            Console.SetError(new StreamWriter(Console.OpenStandardError(), encoding) { AutoFlush = true });
         }
         private static int Run(string[] args)
         {

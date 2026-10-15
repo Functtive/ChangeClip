@@ -2,17 +2,28 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using ChangeClip.Backend;
 using ChangeClip.Contracts;
+using ChangeClip.Devices;
+using ChangeClip.Service;
 
 internal static class Program
 {
     private static int checks;
+    [STAThread]
     private static int Main()
     {
         string root = Path.Combine(Path.GetTempPath(), "ChangeClip-service-" + Guid.NewGuid().ToString("N"));
+        var application = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         try
         {
+            SetupWindowChecks(root);
             var paths = new RuntimePaths(root);
             Call(false, "configure", "--data-root", root, "--nv9-port", "COM3", "--hopper-port", "COM3", "--coin-value", "100");
             Assert(!File.Exists(paths.HardwareConfig), "invalid configuration does not create file");
@@ -47,17 +58,119 @@ internal static class Program
             Assert(store.ReadAll().All(x => x.Stage == TransactionStages.Resolved), "explicit verified zero can reconcile abandoned pending note");
             string status = Call(true, "status", "--data-root", root);
             Assert(status.Contains("Otvoreni zapisi: 0"), "status excludes resolved claims");
-            Console.WriteLine("PASS: " + checks + " service configuration, settlement and process-lock checks; no hardware.");
+            string capabilities = Call(true, "capabilities");
+#if HARDWARE_RELEASE
+            const string simulatorCapability = "false";
+#else
+            const string simulatorCapability = "true";
+#endif
+            Assert(capabilities.Contains("\"nv9Runtime\"") && capabilities.Contains("\"simulatorCompiled\":" + simulatorCapability),
+                "WinExe CLI preserves redirected standard output");
+            Console.WriteLine("PASS: " + checks + " service configuration, setup window, settlement and CLI output checks; no hardware.");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
-        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        finally
+        {
+            application.Shutdown();
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
+    }
+
+    private static void SetupWindowChecks(string root)
+    {
+        Assert(SetupWindow.IsDefaultLaunch(null) && SetupWindow.IsDefaultLaunch(new string[0]),
+            "no arguments route to the setup window");
+        Assert(!SetupWindow.IsDefaultLaunch(new[] { "capabilities" }) &&
+            !SetupWindow.IsDefaultLaunch(new[] { "status" }), "CLI arguments remain on the command route");
+
+        var paths = new RuntimePaths(Path.Combine(root, "setup-window"));
+        int scans = 0;
+        var window = new SetupWindow(paths, (options, cancellationToken) =>
+        {
+            scans++;
+            Assert(options.AutoDetectPorts, "device scan uses automatic port detection");
+            Assert(options.CoinValueMinor == 0, "discovery does not invent a coin denomination before user selection");
+            return Task.FromResult(new DeviceDiscoveryResult("", "", true, false, "Uređaji nisu pronađeni."));
+        });
+
+        Assert(window.CurrentOptions.AutoDetectPorts, "new setup defaults to automatic device detection");
+        Assert(window.CoinValueComboBox.SelectedIndex == -1, "zero denomination has no default selection");
+        Assert(window.Nv9StatusText.Text.Contains("Nije pronađen") &&
+            window.HopperStatusText.Text.Contains("Nije pronađen"), "missing hardware has visible status lines");
+        Assert(window.CoinValueComboBox.Items.Count == 6, "coin denomination list contains six real values");
+        var values = window.CoinValueComboBox.Items.Cast<ComboBoxItem>().Select(x => (int)x.Tag).ToArray();
+        Assert(values.SequenceEqual(new[] { 5, 10, 20, 50, 100, 200 }), "coin denomination choices are in fenings");
+
+        window.FindDevicesButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, window.FindDevicesButton));
+        Assert(scans == 1, "Find devices button invokes discovery");
+        Assert(window.Nv9StatusText.Text.Contains("Nije pronađen") &&
+            window.HopperStatusText.Text.Contains("Nije pronađen"), "no-device scan keeps both status lines clear");
+
+        using (ApplicationLease.Acquire())
+        {
+            window.CoinValueComboBox.SelectedIndex = 4;
+            window.SaveButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, window.SaveButton));
+            Assert(!File.Exists(paths.HardwareConfig) && window.MessageText.Text.Contains("Zatvorite aplikaciju"),
+                "save shows a clear message while ChangeClip owns the application lease");
+            window.FindDevicesButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, window.FindDevicesButton));
+            Assert(scans == 1 && window.MessageText.Text.Contains("Zatvorite aplikaciju"),
+                "device scan does not probe ports while ChangeClip owns the application lease");
+        }
+
+        window.CoinValueComboBox.SelectedIndex = -1;
+        window.SaveButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, window.SaveButton));
+        Assert(!File.Exists(paths.HardwareConfig) && window.MessageText.Text.Contains("Izaberite apoen"),
+            "save requires a selected denomination");
+        window.CoinValueComboBox.SelectedIndex = 4;
+        window.SaveButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, window.SaveButton));
+        Assert(File.Exists(paths.HardwareConfig), "save button writes hardware configuration");
+        var saved = DeviceConfiguration.Read(paths.HardwareConfig);
+        Assert(saved.CoinValueMinor == 100 && saved.AutoDetectPorts &&
+            String.IsNullOrWhiteSpace(saved.Nv9Port) && String.IsNullOrWhiteSpace(saved.HopperPort),
+            "coin value can be saved before ports are found with auto detection enabled");
+        DeviceOptionsValidator.Validate(saved, requireHardware: true);
+
+        var invalid = saved.Copy();
+        invalid.CoinValueMinor = 3;
+        bool rejected = false;
+        try { DeviceOptionsValidator.Validate(invalid, requireHardware: true); }
+        catch (ArgumentOutOfRangeException) { rejected = true; }
+        Assert(rejected, "invalid denomination is rejected by hardware validation");
+
+        var content = (FrameworkElement)window.Content;
+        content.Measure(new Size(720, 520));
+        content.Arrange(new Rect(0, 0, 720, 520));
+        content.UpdateLayout();
+        var bitmap = new RenderTargetBitmap(720, 520, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(content);
+        var projectRoot = FindProjectRoot();
+        var preview = Path.Combine(projectRoot, "artifacts", "ui", "changeclip-setup-preview.png");
+        Directory.CreateDirectory(Path.GetDirectoryName(preview));
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using (var output = File.Create(preview)) encoder.Save(output);
+        Console.WriteLine("PASS: no-argument setup window checks and offscreen preview: " + preview);
+    }
+
+    private static string FindProjectRoot()
+    {
+        var directory = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
+        while (directory != null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "README.md")) &&
+                Directory.Exists(Path.Combine(directory.FullName, "src")) &&
+                Directory.Exists(Path.Combine(directory.FullName, "tests"))) return directory.FullName;
+            directory = directory.Parent;
+        }
+        throw new DirectoryNotFoundException("Could not find the ChangeClip project root.");
     }
     private static string Call(bool success, params string[] args)
     {
         string executable = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ChangeClip.Service.exe");
         var info = new ProcessStartInfo(executable, String.Join(" ", args.Select(x => "\"" + x.Replace("\"", "\\\"") + "\"")))
-        { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
+        { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true,
+            StandardOutputEncoding = System.Text.Encoding.UTF8, StandardErrorEncoding = System.Text.Encoding.UTF8, CreateNoWindow = true };
         using (var process = Process.Start(info))
         {
             var output = process.StandardOutput.ReadToEndAsync(); var error = process.StandardError.ReadToEndAsync();

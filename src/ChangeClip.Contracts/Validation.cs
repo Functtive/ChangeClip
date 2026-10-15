@@ -22,12 +22,17 @@ namespace ChangeClip.Contracts
             ValidateCoinValue(options.CoinValueMinor);
             if (options.SimulatorCoins < 0) throw new InvalidDataException("Zaliha ne može biti negativna.");
             if (!hardware) return;
+            ValidateConnectionSettings(options, requirePorts);
+        }
+        public static void ValidateConnectionSettings(DeviceOptions options, bool requirePorts = false)
+        {
+            if (options == null) throw new InvalidDataException("Konfiguracija nije ispravna.");
             if (options.HopperAddress < 2) throw new InvalidDataException("ccTalk adresa hoppera mora biti 2 do 255.");
             if (options.Nv9Address > 127) throw new InvalidDataException("NV9 SSP adresa mora biti 0 do 127.");
             if (!string.IsNullOrWhiteSpace(options.Nv9FixedKeyHex) && !Regex.IsMatch(options.Nv9FixedKeyHex, "\\A[0-9a-fA-F]{16}\\z"))
                 throw new InvalidDataException("NV9 ključ mora sadržavati tačno 16 heksadecimalnih znakova bez 0x prefiksa.");
             foreach (string port in new[] { options.Nv9Port, options.HopperPort })
-                if ((requirePorts || !string.IsNullOrWhiteSpace(port)) && !Regex.IsMatch(port ?? "", "\\ACOM[1-9][0-9]*\\z", RegexOptions.IgnoreCase))
+                if (((requirePorts && !options.AutoDetectPorts) || !string.IsNullOrWhiteSpace(port)) && !Regex.IsMatch(port ?? "", "\\ACOM[1-9][0-9]*\\z", RegexOptions.IgnoreCase))
                     throw new InvalidDataException("Upišite stvarne NV9 i hopper COM portove, npr. COM3 i COM4.");
             if (!string.IsNullOrWhiteSpace(options.Nv9Port) && string.Equals(options.Nv9Port, options.HopperPort, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("NV9 i hopper moraju koristiti različite COM portove.");

@@ -4,6 +4,7 @@
     <ItlRuntimePath Condition="'$(ItlRuntimePath)' == ''">$(MSBuildProjectDirectory)\..\..\vendor\ITL\ITLlib.dll</ItlRuntimePath>
   </PropertyGroup>
   <PropertyGroup Condition="Exists('$(ItlRuntimePath)')"><DefineConstants>$(DefineConstants);ITL_SDK</DefineConstants></PropertyGroup>
+  <ItemGroup><Reference Include="System.Management" /></ItemGroup>
   <ItemGroup><ProjectReference Include="..\ChangeClip.Contracts\ChangeClip.Contracts.csproj" /></ItemGroup>
   <ItemGroup Condition="Exists('$(ItlRuntimePath)')"><Reference Include="ITLlib"><HintPath>$(ItlRuntimePath)</HintPath><Private>true</Private></Reference></ItemGroup>
   <Target Name="VerifyHardwareRuntime" BeforeTargets="BeforeCompile" Condition="'$(RequireHardware)' == 'true'">

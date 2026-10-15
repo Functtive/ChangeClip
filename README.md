@@ -6,7 +6,7 @@ NV9 prima više novčanica i sabira iznos u **Primljeno**. Jedno dugme **Razmije
 
 Potvrđene uplate, pojedinačne isplatne grupe i dugovi čuvaju se na disku. Nezavršena isplata se pri restartu ne ponavlja automatski. Servisni alat prikazuje sve otvorene zapise i trajno evidentira podmirenje nakon fizičke provjere i ručne isplate.
 
-Korisničko izdanje 0.3.0 sadrži pravi NV9 adapter i nema simulator. Bez ispravne konfiguracije ili povezanih uređaja prijem novca ostaje blokiran. Automatizirane razvojne provjere koriste zasebne testne uređaje; njihov kod ne ulazi u korisnički paket.
+Korisničko izdanje 0.4.0 sadrži pravi NV9 adapter i nema simulator. Bez ispravne konfiguracije ili povezanih uređaja prijem novca ostaje blokiran. Automatizirane razvojne provjere koriste zasebne testne uređaje; njihov kod ne ulazi u korisnički paket.
 
 ## Struktura
 
@@ -26,9 +26,9 @@ artifacts/                Installer, portable ZIP i slika interfejsa, nije na Gi
 
 ## Instalacija
 
-Paket `artifacts/ChangeClip-Setup-0.3.0.exe` namijenjen je drugom Windows 10/11 računaru s .NET Framework 4.8. Razvojni SDK, Git i Visual Studio nisu potrebni. Portable ZIP mora se raspakovati u cijelosti.
+Paket `artifacts/ChangeClip-Setup-0.4.0.exe` namijenjen je drugom Windows 10/11 računaru s .NET Framework 4.8. Razvojni SDK, Git i Visual Studio nisu potrebni. Portable ZIP mora se raspakovati u cijelosti.
 
-Podesiti stvarne COM portove, apoen kovanice i protokol prema uređajima. Podržan je standardni U-II ccTalk; Encrypted/PIN varijanta zahtijeva potvrdu modela i odgovarajući adapter. Fizičko povezivanje, ponašanje bežela i stvarni broj isplaćenih kovanica provjerava vlasnik na ciljnom računaru.
+Dvoklikom na `ChangeClip.Service.exe` otvoriti prozor podešavanja i izabrati stvarni apoen kovanice. Aplikacija automatski traži USB/COM portove i prepoznaje uloge uređaja preko SSP/eSSP i ccTalk odgovora. Dok nema oba uređaja, prijem novca ostaje blokiran i aplikacija čeka priključivanje. Podržan je standardni U-II ccTalk; Encrypted/PIN varijanta zahtijeva potvrdu modela i odgovarajući adapter. Fizičko povezivanje, ponašanje bežela i stvarni broj isplaćenih kovanica provjerava vlasnik na ciljnom računaru.
 
 [Instalacija](docs/INSTALACIJA.md) · [USB driveri](docs/USB_DRIVERS.md) · [Servis](docs/SERVIS.md) · [Hardverski test](docs/HARDWARE_TEST.md) · [Softverske provjere](docs/PROVJERE.md)
 

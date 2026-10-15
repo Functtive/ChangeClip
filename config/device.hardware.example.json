@@ -1,5 +1,6 @@
 {
   "mode": "Hardware",
+  "autoDetectPorts": true,
   "coinValueMinor": 0,
   "simulatorCoins": 0,
   "nv9Port": "",

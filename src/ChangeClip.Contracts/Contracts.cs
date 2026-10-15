@@ -154,7 +154,7 @@ namespace ChangeClip.Contracts
         {
             Mode = "Hardware"; CoinValueMinor = 0; SimulatorCoins = 100;
             Nv9Port = ""; HopperPort = ""; HopperAddress = 3;
-            Nv9Address = 0; HopperEcho = true; UseEncryptedSsp = true;
+            Nv9Address = 0; HopperEcho = true; UseEncryptedSsp = true; AutoDetectPorts = true;
         }
         [DataMember(Name = "mode")] public string Mode { get; set; }
         [DataMember(Name = "coinValueMinor")] public int CoinValueMinor { get; set; }
@@ -166,5 +166,16 @@ namespace ChangeClip.Contracts
         [DataMember(Name = "nv9Address")] public byte Nv9Address { get; set; }
         [DataMember(Name = "useEncryptedSsp")] public bool UseEncryptedSsp { get; set; }
         [DataMember(Name = "nv9FixedKeyHex")] public string Nv9FixedKeyHex { get; set; }
+        [DataMember(Name = "autoDetectPorts")] public bool AutoDetectPorts { get; set; }
+        [OnDeserializing]
+        private void BeforeDeserialize(StreamingContext context)
+        {
+            // DataContractJsonSerializer does not invoke the constructor. Old configurations
+            // without the new flag should discover devices rather than freeze old COM numbers.
+            Mode = "Hardware"; CoinValueMinor = 0; SimulatorCoins = 100;
+            Nv9Port = ""; HopperPort = ""; HopperAddress = 3;
+            Nv9Address = 0; HopperEcho = true; UseEncryptedSsp = true; AutoDetectPorts = true;
+        }
+        public DeviceOptions Copy() { return (DeviceOptions)MemberwiseClone(); }
     }
 }

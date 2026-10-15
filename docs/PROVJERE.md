@@ -1,4 +1,4 @@
-# Softverske provjere ChangeClip 0.3.0
+# Softverske provjere ChangeClip 0.4.0
 
 Provjereno 2026-10-15 na razvojnom Windows računaru, uz .NET Framework 4.8 i lokalni .NET SDK 8.0.426. Fizički uređaji nisu povezivani niti su driveri instalirani.
 
@@ -6,11 +6,13 @@ Provjereno 2026-10-15 na razvojnom Windows računaru, uz .NET Framework 4.8 i lo
 |---|---|
 | Cijelo rješenje i korisničko izdanje | Prošlo, 0 upozorenja i 0 grešaka |
 | Backend | Prošli scenariji više uplata, deduplikacije, disable/idle granice, grupne isplate, duga, restarta, poznate zalihe, enable ACK trke, migracije, receipt oporavka i zabrane kasnog pisanja nakon Dispose |
-| NV9/ccTalk kod | 58 razvojnih i 40 provjera korisničkog adaptera prošlo; fizička komunikacija nije dio ovih provjera |
+| NV9/ccTalk kod | 98 razvojnih provjera prošlo, uključujući USB identifikaciju bez komandi novca; fizička komunikacija nije dio ovih provjera |
 | Integracija logike, testnih uređaja i stvarne evidencije | 141 provjera prošla, uključujući 10+20=30 KM, višestruki klik, 300/400 kovanica u grupama, djelimičnu isplatu, trajan dug i nastavak potvrđenog bilansa |
 | Stvarni WPF ekran | Prošle veze dugmadi s funkcijama, iznosi/statusi kroz sve faze, blokirano zatvaranje tokom isplate, više potraživanja, nepotpuna konfiguracija i prikaz pri minimalnoj veličini |
-| Servisni CLI | 21 provjera prošla: eksplicitna konfiguracija, odbijanje nevažećih opcija, zabrana promjene uz aktivnu aplikaciju, pregled bez izmjene, fingerprint, ručno podmirenje i idempotentno ponavljanje |
+| Servisni CLI | 40 provjera prošlo: eksplicitna konfiguracija, odbijanje nevažećih opcija, zabrana promjene uz aktivnu aplikaciju, pregled bez izmjene, fingerprint, ručno podmirenje i idempotentno ponavljanje |
 | Obavezni NV9 runtime | Korisnički build prijavljuje nv9Runtime=true, simulatorCompiled=false, ITLlib1.0.0.3; negativni build bez SDK-a očekivano odbijen |
+
+Dodatno je prošlo devet scenarija automatskog povezivanja: trenutno vraćanje StartAsync bez uređaja, priključivanje kasnije, nepotpuni/dvosmisleni parovi, ponovno povezivanje prije uplate i zabrana ponavljanja nakon novčanog bilansa. Startup ReadAll i Dispose provjereni su paralelnim zadacima: migracijski upis ne može nastaviti nakon zatvaranja. Servisni prozor renderovan je i vizuelno pregledan, a njegov komandni izlaz provjeren preko zasebnog procesa s preusmjerenim tekstom.
 
 Korisničko izdanje sadrži samo aplikaciju za stvarne uređaje. Razvojni programi za automatske provjere ne isporučuju se kao korisnička aplikacija. Slika ekrana nastaje renderovanjem stvarnog XAML-a u `artifacts/ui/changeclip-hardware-preview.png`.
 
