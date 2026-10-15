@@ -35,14 +35,18 @@ namespace ChangeClip.Frontend
         {
             get
             {
+                if (_snapshot.UnresolvedClaims.Count > 1) return "Provjera";
                 var amount = _snapshot.State == ExchangeState.Succeeded && _snapshot.OwedMinor == 0
                     ? 0
                     : _snapshot.ReceivedMinor;
                 return Format(amount);
             }
         }
-        public string PaidAmount { get { return Format(_snapshot.PaidMinor); } }
-        public string OwedAmount { get { return _snapshot.IsDebtExact ? Format(_snapshot.OwedMinor) : "Provjera"; } }
+        public string PaidAmount { get { return _snapshot.UnresolvedClaims.Count > 1 ? "Provjera" : Format(_snapshot.PaidMinor); } }
+        public string OwedAmount
+        {
+            get { return _snapshot.UnresolvedClaims.Count > 1 || !_snapshot.IsDebtExact ? "Provjera" : Format(_snapshot.OwedMinor); }
+        }
         public string Error { get { return _error; } }
         public string SimulatorHint
         {
@@ -50,9 +54,13 @@ namespace ChangeClip.Frontend
             {
                 if (_simulator == null) return "";
                 if (_snapshot.State == ExchangeState.Ready)
-                    return "Ubacite 10 ili 20 KM, zatim pritisnite Razmijeni.";
+                    return _snapshot.CanAcceptBanknotes
+                        ? "Ubacite 10 ili 20 KM, zatim pritisnite Razmijeni."
+                        : (String.IsNullOrWhiteSpace(_snapshot.Message) ? "Uređaj trenutno ne prihvata novčanice." : _snapshot.Message);
                 if (_snapshot.State == ExchangeState.AwaitingPayout)
-                    return "Možete ubaciti još novčanica od 10 ili 20 KM.";
+                    return _snapshot.CanAcceptBanknotes
+                        ? "Možete ubaciti još novčanica od 10 ili 20 KM."
+                        : "Dodatne novčanice trenutno nisu prihvaćene.";
                 return "";
             }
         }
@@ -69,8 +77,16 @@ namespace ChangeClip.Frontend
         {
             get
             {
+                return _simulator != null && !_isBusy && _snapshot.CanAcceptBanknotes;
+            }
+        }
+        public bool CanAdjustSimulatorStock
+        {
+            get
+            {
                 return _simulator != null && !_isBusy &&
-                    (_snapshot.State == ExchangeState.Ready || _snapshot.State == ExchangeState.AwaitingPayout);
+                    _snapshot.State != ExchangeState.Accepting && _snapshot.State != ExchangeState.PayingOut &&
+                    _snapshot.State != ExchangeState.Debt && _snapshot.State != ExchangeState.ReconciliationRequired;
             }
         }
         public bool IsPayoutInProgress
@@ -78,7 +94,7 @@ namespace ChangeClip.Frontend
             get
             {
                 var current = _session.Snapshot ?? _snapshot;
-                return current.State == ExchangeState.Accepting || current.State == ExchangeState.PayingOut;
+                return _isBusy || current.State == ExchangeState.Accepting || current.State == ExchangeState.PayingOut;
             }
         }
         public Visibility SimulatorVisibility { get { return _simulator == null ? Visibility.Collapsed : Visibility.Visible; } }
@@ -87,17 +103,24 @@ namespace ChangeClip.Frontend
         {
             get
             {
+                if (_snapshot.UnresolvedClaims.Count > 1)
+                    return "Više neriješenih razmjena (" + _snapshot.UnresolvedClaims.Count + "). Potrebna je servisna provjera.";
                 if (_snapshot.State == ExchangeState.AwaitingPayout)
                     return "Primljeno. Pritisnite Razmijeni za isplatu.";
                 if (_snapshot.State == ExchangeState.Ready)
                 {
                     if (!String.IsNullOrWhiteSpace(_snapshot.Message) &&
                         _snapshot.Message.IndexOf("Uspješno", StringComparison.OrdinalIgnoreCase) >= 0)
-                        return _snapshot.Message;
+                        return _snapshot.CanAcceptBanknotes
+                            ? _snapshot.Message : "Uspješno. Isplata je završena.";
+                    if (!_snapshot.CanAcceptBanknotes)
+                        return String.IsNullOrWhiteSpace(_snapshot.Message)
+                            ? "Uređaj trenutno ne prihvata novčanice." : _snapshot.Message;
                     return "Ubacite 10 ili 20 KM";
                 }
                 if (_snapshot.State == ExchangeState.Initializing || _snapshot.State == ExchangeState.Disconnected)
-                    return "Ubacite 10 ili 20 KM";
+                    return _snapshot.State == ExchangeState.Initializing
+                        ? "Povezivanje uređaja..." : "Uređaji nisu povezani.";
                 if (_snapshot.State == ExchangeState.AwaitingChoice)
                     return "Primljeno. Pritisnite Razmijeni za isplatu.";
                 if (_snapshot.State == ExchangeState.Accepting) return "Prihvat novčanice...";
@@ -132,10 +155,14 @@ namespace ChangeClip.Frontend
             catch (Exception ex) { SetError(ex.Message); }
         }
 
-        public void SetHopperCoins(int coins)
+        public async Task SetHopperCoinsAsync(int coins)
         {
-            if (!CanInsertSimulatorBanknote) return;
-            try { _simulator.SetHopperCoins(coins); }
+            if (!CanAdjustSimulatorStock) return;
+            try
+            {
+                _simulator.SetHopperCoins(coins);
+                await RunAsync(delegate { return _session.RefreshReadinessAsync(_cancellation.Token); });
+            }
             catch (Exception ex) { SetError(ex.Message); }
         }
 
@@ -189,6 +216,7 @@ namespace ChangeClip.Frontend
             OnPropertyChanged("Status");
             OnPropertyChanged("CanExchange");
             OnPropertyChanged("CanInsertSimulatorBanknote");
+            OnPropertyChanged("CanAdjustSimulatorStock");
             OnPropertyChanged("IsPayoutInProgress");
             OnPropertyChanged("SimulatorHint");
             OnPropertyChanged("SimulatorHintVisibility");

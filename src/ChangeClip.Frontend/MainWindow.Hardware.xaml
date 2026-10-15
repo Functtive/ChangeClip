@@ -1,0 +1,76 @@
+<Window x:Class="ChangeClip.Frontend.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ChangeClip" Width="760" Height="660" MinWidth="600" MinHeight="560"
+        WindowStartupLocation="CenterScreen" Background="{StaticResource AppBackground}"
+        FontFamily="Segoe UI" Loaded="Window_Loaded" Closing="Window_Closing" Closed="Window_Closed">
+    <Border Background="{StaticResource AppBackground}" Padding="30">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="2,0,2,24">
+                <TextBlock Text="CHANGECLIP" FontSize="13" FontWeight="Bold"
+                           Foreground="{StaticResource Muted}" />
+                <TextBlock Text="Razmjena novca" FontSize="29" FontWeight="Bold" Margin="0,3,0,0" />
+                <TextBlock Text="Prihvataju se novčanice od 10 ili 20 KM."
+                           FontSize="13" Foreground="{StaticResource Muted}" Margin="0,3,0,0" />
+            </StackPanel>
+
+            <Border Grid.Row="1" Background="{StaticResource CardBackground}" CornerRadius="20"
+                    Padding="22" BorderBrush="#273250" BorderThickness="1">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="PRIMLJENO" FontSize="12" FontWeight="Bold"
+                                   Foreground="{StaticResource Muted}" />
+                        <TextBlock Text="{Binding ReceivedAmount}" FontSize="50" FontWeight="Bold"
+                                   Foreground="{StaticResource Ink}" Margin="0,2,0,0" />
+                    </StackPanel>
+
+                    <Border x:Name="StatusPanel" Grid.Row="1" Background="#151D35" CornerRadius="14"
+                            Padding="20" VerticalAlignment="Center">
+                        <StackPanel>
+                            <TextBlock x:Name="StatusText" Text="{Binding Status}" FontSize="19" FontWeight="SemiBold"
+                                       Foreground="{StaticResource Ink}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding Error}" FontSize="14" Foreground="#FF9B9B"
+                                       TextWrapping="Wrap" Margin="0,7,0,0" Visibility="{Binding ErrorVisibility}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Grid Grid.Row="2" Margin="0,18,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Background="#232D49" CornerRadius="12" Padding="14,12" Margin="0,0,7,0">
+                            <StackPanel>
+                                <TextBlock Text="POTVRĐENO ISPLAĆENO" FontSize="10" FontWeight="Bold"
+                                           Foreground="{StaticResource Muted}" />
+                                <TextBlock Text="{Binding PaidAmount}" FontSize="21" FontWeight="SemiBold" Margin="0,3,0,0" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="1" Background="#232D49" CornerRadius="12" Padding="14,12" Margin="7,0,0,0">
+                            <StackPanel>
+                                <TextBlock Text="PREOSTALO" FontSize="10" FontWeight="Bold"
+                                           Foreground="{StaticResource Muted}" />
+                                <TextBlock Text="{Binding OwedAmount}" FontSize="21" FontWeight="SemiBold" Margin="0,3,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Button x:Name="ExchangeButton" Grid.Row="2" Content="Razmijeni" IsEnabled="{Binding CanExchange}"
+                    Background="#6D4CC3" Margin="0,18,0,0" HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center" Click="Exchange_Click" />
+        </Grid>
+    </Border>
+</Window>

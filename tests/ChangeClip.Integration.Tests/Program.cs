@@ -30,10 +30,10 @@ internal static class Program
             await Scenario(root, "partial", 7, 100, new[] { 1000 }, 0, 300);
             await Scenario(root, "empty", 0, 100, new[] { 1000 }, 0, 1000);
             await Scenario(root, "batch300", 400, 100, Enumerable.Repeat(2000, 15).ToArray(), 100, 0);
-            var options = new DeviceOptions { SimulatorCoins = 100 };
+            var options = new DeviceOptions { Mode = "Simulator", CoinValueMinor = 100, SimulatorCoins = 100 };
             var devices = DeviceFactory.Create(options);
             using (var restarted = new ExchangeService(devices.BillAcceptor, devices.Hopper,
-                new JsonTransactionStore(Path.Combine(root, "partial.json")), 100))
+                new LedgerStore(Path.Combine(root, "partial")), 100))
             {
                 await restarted.StartAsync(Token);
                 Assert(restarted.Snapshot.State == ExchangeState.Debt && restarted.Snapshot.OwedMinor == 300, "restart retains exact debt");
@@ -44,16 +44,18 @@ internal static class Program
                 Assert(blocked, "debt blocks new banknote");
             }
             await FundedRestart(root);
+            await KnownStock(root);
+            await Scenario(root, "5fening400", 1000, 5, new[] { 2000 }, 600, 0);
         }
         finally { Directory.Delete(root, true); }
     }
     private static async Task Scenario(string root, string name, int stock, int coinValue, int[] notes,
         int remaining, int debt)
     {
-        var options = new DeviceOptions { SimulatorCoins = stock, CoinValueMinor = coinValue };
+        var options = new DeviceOptions { Mode = "Simulator", SimulatorCoins = stock, CoinValueMinor = coinValue };
         var devices = DeviceFactory.Create(options);
-        var store = new JsonTransactionStore(Path.Combine(root, name + ".json"));
-        using (var session = new ExchangeService(devices.BillAcceptor, devices.Hopper, store, coinValue))
+        var store = new LedgerStore(Path.Combine(root, name));
+        using (var session = new ExchangeService(devices.BillAcceptor, stock < 20 ? (ICoinHopper)new UnknownStockHopper(devices.Hopper) : devices.Hopper, store, coinValue))
         {
             await session.StartAsync(Token);
             Assert(session.Snapshot.State == ExchangeState.Ready, name + " ready");
@@ -92,8 +94,8 @@ internal static class Program
     }
     private static async Task FundedRestart(string root)
     {
-        var store = new JsonTransactionStore(Path.Combine(root, "funded-restart.json"));
-        var firstDevices = DeviceFactory.Create(new DeviceOptions());
+        var store = new LedgerStore(Path.Combine(root, "funded-restart"));
+        var firstDevices = DeviceFactory.Create(new DeviceOptions { Mode = "Simulator", CoinValueMinor = 100 });
         using (var session = new ExchangeService(firstDevices.BillAcceptor, firstDevices.Hopper, store, 100))
         {
             await session.StartAsync(Token);
@@ -101,7 +103,7 @@ internal static class Program
             await firstDevices.BillAcceptor.WaitForIdleAsync(Token);
             Assert(store.ReadAll().Single().ReceivedMinor == 1000, "funded before close");
         }
-        var devices = DeviceFactory.Create(new DeviceOptions { SimulatorCoins = 100 });
+        var devices = DeviceFactory.Create(new DeviceOptions { Mode = "Simulator", CoinValueMinor = 100, SimulatorCoins = 100 });
         using (var restarted = new ExchangeService(devices.BillAcceptor, devices.Hopper, store, 100))
         {
             await restarted.StartAsync(Token);
@@ -114,6 +116,38 @@ internal static class Program
             Assert(devices.Simulator.HopperCoins == 70 && restarted.Snapshot.State == ExchangeState.Ready,
                 "pays restored and new banknotes exactly once");
         }
+    }
+    private static async Task KnownStock(string root)
+    {
+        var devices = DeviceFactory.Create(new DeviceOptions { Mode = "Simulator", CoinValueMinor = 100, SimulatorCoins = 10 });
+        using (var session = new ExchangeService(devices.BillAcceptor, devices.Hopper, new LedgerStore(Path.Combine(root, "known-stock")), 100))
+        {
+            await session.StartAsync(Token);
+            Assert(!session.Snapshot.CanAcceptBanknotes, "known shortage inhibits input before cash");
+            bool blocked = false;
+            try { devices.Simulator.InsertBanknote(1000); } catch (InvalidOperationException) { blocked = true; }
+            Assert(blocked, "known shortage disables actual acceptor");
+            devices.Simulator.SetHopperCoins(100); await session.RefreshReadinessAsync(Token);
+            Assert(session.Snapshot.CanAcceptBanknotes, "refill readiness re-enables input");
+            devices.Simulator.InsertBanknote(1000); await devices.BillAcceptor.WaitForIdleAsync(Token);
+            devices.Simulator.SetHopperCoins(15); await session.RefreshReadinessAsync(Token);
+            Assert(!session.Snapshot.CanAcceptBanknotes && session.Snapshot.CanExchange, "funded wallet remains payable while further intake inhibited");
+            await session.ExchangeAsync(Token);
+            Assert(devices.Simulator.HopperCoins == 5 && session.Snapshot.ReceivedMinor == 0 && !session.Snapshot.CanAcceptBanknotes, "paid wallet resets but known shortage keeps input closed");
+            devices.Simulator.SetHopperCoins(100); await session.RefreshReadinessAsync(Token);
+            Assert(session.Snapshot.CanAcceptBanknotes, "refill after full payout recovers input");
+        }
+    }
+    private sealed class UnknownStockHopper : ICoinHopper
+    {
+        private readonly ICoinHopper inner;
+        public UnknownStockHopper(ICoinHopper value) { inner = value; }
+        public Task ConnectAsync(CancellationToken token) { return inner.ConnectAsync(token); }
+        public async Task<HopperStatus> GetStatusAsync(CancellationToken token)
+        { var status = await inner.GetStatusAsync(token); return new HopperStatus(status.Connected, false, null, status.Fault); }
+        public Task<PayoutResult> PayoutAsync(int coins, IProgress<int> progress, CancellationToken token) { return inner.PayoutAsync(coins, progress, token); }
+        public Task StopAsync(CancellationToken token) { return inner.StopAsync(token); }
+        public void Dispose() { inner.Dispose(); }
     }
     private static void Assert(bool condition, string message)
     { if (!condition) throw new InvalidOperationException("FAIL: " + message); checks++; }

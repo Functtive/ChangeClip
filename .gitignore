@@ -34,3 +34,5 @@ artifacts/
 # OS files
 Thumbs.db
 Desktop.ini
+
+device.hardware.json

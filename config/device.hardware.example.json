@@ -1,0 +1,12 @@
+{
+  "mode": "Hardware",
+  "coinValueMinor": 0,
+  "simulatorCoins": 0,
+  "nv9Port": "",
+  "hopperPort": "",
+  "hopperAddress": 3,
+  "hopperEcho": true,
+  "nv9Address": 0,
+  "useEncryptedSsp": true,
+  "nv9FixedKeyHex": null
+}

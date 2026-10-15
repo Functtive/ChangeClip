@@ -1,20 +1,19 @@
-# Provjere prototipa 0.2.0
+# Softverske provjere ChangeClip 0.3.0
 
-Razvojni računar: Windows, .NET Framework 4.8; build alat lokalni .NET SDK 8.0.426. Uređaji nisu spojeni. Nijedna provjera nije pomjerala stvarni novac niti instalirala driver.
+Provjereno 2026-10-15 na razvojnom Windows računaru, uz .NET Framework 4.8 i lokalni .NET SDK 8.0.426. Fizički uređaji nisu povezivani niti su driveri instalirani.
 
 | Provjera | Rezultat |
 |---|---|
-| Release build svih modula | Prošao, bez upozorenja i grešaka |
-| Backend | 28 scenarija prošlo: automatski prihvat više novčanica, deduplikacija, disable/idle granica, isplata na klik, 255+45 batch, dug, prekid i restart |
-| Device simulator / ccTalk codec | 49 provjera prošlo: automatski prihvat 10+20, GUID/idle/dispatch, Credit prije Faulta, kontradiktoran Rejected, frame/checksum/adresa i 24-bitni brojač |
-| Backend + stvarne simulator klase + JSON journal | 126 provjera prošlo: zbir više uplata prije klika, nema rane isplate, 300 kovanica u više komandi, reset na nulu, prazan hopper, dug i potvrđeni bilans nakon restarta |
-| WPF frontend | Ready/AwaitingPayout/Debt, sabiranje 10+20=30, poziv ExchangeAsync preko Button.Click, reset na nulu, zatvaranje bez ReturnAsync i render stvarnog XAML-a |
-| Distribucija | Windows Setup i portable ZIP verzije 0.2.0; instalaciju na drugom računaru treba provjeriti tamo |
+| Cijelo rješenje i korisničko izdanje | Prošlo, 0 upozorenja i 0 grešaka |
+| Backend | Prošli scenariji više uplata, deduplikacije, disable/idle granice, grupne isplate, duga, restarta, poznate zalihe, enable ACK trke, migracije, receipt oporavka i zabrane kasnog pisanja nakon Dispose |
+| NV9/ccTalk kod | 58 razvojnih i 40 provjera korisničkog adaptera prošlo; fizička komunikacija nije dio ovih provjera |
+| Integracija logike, testnih uređaja i stvarne evidencije | 141 provjera prošla, uključujući 10+20=30 KM, višestruki klik, 300/400 kovanica u grupama, djelimičnu isplatu, trajan dug i nastavak potvrđenog bilansa |
+| Stvarni WPF ekran | Prošle veze dugmadi s funkcijama, iznosi/statusi kroz sve faze, blokirano zatvaranje tokom isplate, više potraživanja, nepotpuna konfiguracija i prikaz pri minimalnoj veličini |
+| Servisni CLI | 21 provjera prošla: eksplicitna konfiguracija, odbijanje nevažećih opcija, zabrana promjene uz aktivnu aplikaciju, pregled bez izmjene, fingerprint, ručno podmirenje i idempotentno ponavljanje |
+| Obavezni NV9 runtime | Korisnički build prijavljuje nv9Runtime=true, simulatorCompiled=false, ITLlib1.0.0.3; negativni build bez SDK-a očekivano odbijen |
 
-## Granice provjere
+Korisničko izdanje sadrži samo aplikaciju za stvarne uređaje. Razvojni programi za automatske provjere ne isporučuju se kao korisnička aplikacija. Slika ekrana nastaje renderovanjem stvarnog XAML-a u `artifacts/ui/changeclip-hardware-preview.png`.
 
-Frontend pregled je offscreen render stvarnog WPF sadržaja, bez snimanja desktopa. Provjera klika potvrđuje vezu XAML događaja s funkcijom; provjere backend/device modula zasebno potvrđuju simuliranu isplatu.
+Paket se svaki put sastavlja u novom folderu iz eksplicitnog spiska fajlova. Provjeravaju se verzija, identične biblioteke aplikacije/servisa, pregledani lokalni ITL SHA256, izvršivi runtime i manifest sadržaja. `tools/Verify-Package.ps1` provjerava nedostajuće, promijenjene i neočekivane fajlove.
 
-Na drugom računaru tek treba potvrditi instalaciju, potpisane drivere, COM portove i fizički NV9/U-II rad. Automatski prihvat, završetak tekuće novčanice nakon DISABLE, broj isplaćenih kovanica i ponašanje prekida nisu fizički potvrđeni. Radni tok ne koristi HOLD čekanje korisnika niti vraćanje spremljenog novca pri zatvaranju. Encrypted/PIN U-II i nepoznati dongle ne smatraju se podržanim bez dodatne implementacije/provjere.
-
-Kod ne nudi automatsko ponovno plaćanje ili administrativno zatvaranje duga. Simulator i hardware evidencije su odvojene u korisničkom LocalAppData folderu.
+Stvarni prihvat, bezel, USB/ccTalk veza, završetak novčanice nakon deaktivacije NV9, fizički broj isplaćenih kovanica i ponašanje konkretnog modela/donglea potvrđuje vlasnik na drugom računaru prema HARDWARE_TEST.md. To nije potvrđeno softverskim provjerama.

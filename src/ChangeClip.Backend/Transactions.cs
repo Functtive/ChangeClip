@@ -50,6 +50,7 @@ namespace ChangeClip.Backend
         [DataMember] public List<PayoutBatchRecord> Batches { get; set; }
         [DataMember] public bool HasPendingNote { get; set; }
         [DataMember] public string PendingEventId { get; set; }
+        [DataMember] public string ResolutionId { get; set; }
         public TransactionRecord Copy()
         {
             var copy = (TransactionRecord)MemberwiseClone();

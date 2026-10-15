@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>ChangeClip.Service</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ChangeClip.Contracts\ChangeClip.Contracts.csproj" />
+    <ProjectReference Include="..\ChangeClip.Backend\ChangeClip.Backend.csproj" />
+    <ProjectReference Include="..\ChangeClip.Devices\ChangeClip.Devices.csproj" />
+  </ItemGroup>
+</Project>

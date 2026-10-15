@@ -15,8 +15,19 @@ internal static class Program
     private sealed class ImmediateProgress : IProgress<int> { public readonly List<int> Values = new List<int>(); public void Report(int value) { Values.Add(value); } }
     private static async Task Run()
     {
-        var devices = DeviceFactory.Create(new DeviceOptions { SimulatorCoins = 3 });
-        Check(devices.Simulator != null, "Default mode must be simulator.");
+        var deviceAssembly = typeof(DeviceFactory).Assembly;
+        bool referencesItl = deviceAssembly.GetReferencedAssemblies().Any(a => a.Name.Equals("ITLlib", StringComparison.OrdinalIgnoreCase));
+        Check(DeviceFactory.Nv9RuntimeAvailable == referencesItl, "NV9 capability must agree with compiled runtime reference metadata; no port probing.");
+#if HARDWARE_RELEASE
+        Check(DeviceFactory.Nv9RuntimeAvailable, "Hardware release must expose the compiled NV9 runtime capability.");
+        Check(!DeviceFactory.SimulatorAvailable && deviceAssembly.GetType("ChangeClip.Devices.SimulatedBillAcceptor") == null
+            && deviceAssembly.GetType("ChangeClip.Devices.SimulatedCoinHopper") == null
+            && deviceAssembly.GetType("ChangeClip.Devices.SimulatorControls") == null, "Hardware DLL must contain no simulator types.");
+        Throws<InvalidDataException>(() => DeviceFactory.Create(new DeviceOptions { Mode = "Simulator", CoinValueMinor = 100 }));
+#else
+        Check(DeviceFactory.SimulatorAvailable && deviceAssembly.GetType("ChangeClip.Devices.SimulatedBillAcceptor") != null, "Development DLL explicitly includes simulator capability.");
+        var devices = DeviceFactory.Create(new DeviceOptions { Mode = "Simulator", CoinValueMinor = 100, SimulatorCoins = 3 });
+        Check(devices.Simulator != null, "Explicit simulator mode must create simulator controls.");
         var events = new List<BillEventArgs>(); devices.BillAcceptor.BillEvent += (s, e) => events.Add(e);
         await devices.BillAcceptor.ConnectAsync(CancellationToken.None);
         await devices.Hopper.ConnectAsync(CancellationToken.None);
@@ -56,6 +67,7 @@ internal static class Program
         devices.Simulator.InsertBanknote(2000);
         Check(events.Count(e => e.Kind == BillEventKind.Credit) == 4, "Intake must re-enable after payout cycle.");
 
+#endif
         var tracker = new Nv9PollTracker(); tracker.Amounts[1] = 1000; tracker.Currencies[1] = "BAM";
         tracker.BeginDispatch();
         var reading = tracker.Parse(new byte[] { 0xF0, 0xEF, 0 }, out Exception pollFault);
@@ -71,6 +83,7 @@ internal static class Program
         Check(final.All(e => e.EventId == trackedId), "NV9 final events retain escrow note identity.");
         Check(!tracker.IdleTask.IsCompleted, "Parsed final event is not idle until dispatched.");
         tracker.EndDispatch(); Check(tracker.IdleTask.IsCompleted && !tracker.IdleTask.IsFaulted, "Final callback dispatch completes idle.");
+        await tracker.IdleTask; // A completed final-dispatch idle signal must also await successfully.
         tracker.BeginDispatch(); var repeatedTerminal = tracker.Parse(new byte[] { 0xF0, 0xEB }, out pollFault); tracker.EndDispatch();
         Check(repeatedTerminal.Count == 0 && pollFault == null, "Repeated same-note STACKED must not post twice.");
         tracker.BeginDispatch(); tracker.Parse(new byte[] { 0xF0, 0xEF, 1 }, out pollFault); tracker.EndDispatch();
@@ -96,6 +109,7 @@ internal static class Program
         Check(!contradiction.IdleTask.IsCompleted, "Contradictory final event is never a safe idle completion.");
         contradiction.Fail(pollFault); contradiction.EndDispatch();
         Throws<InvalidDataException>(() => contradiction.IdleTask.GetAwaiter().GetResult());
+#if !HARDWARE_RELEASE
         var partialProgress = new ImmediateProgress();
         var partial = await devices.Hopper.PayoutAsync(5, partialProgress, CancellationToken.None);
         Check(partial.Outcome == PayoutOutcome.Empty && partial.ConfirmedCoins == 3 && partial.CountReliable, "Empty simulator must report exact partial payout.");
@@ -114,6 +128,7 @@ internal static class Program
         Check(stopped.Outcome == PayoutOutcome.Fault && stopped.CountReliable && stopped.ConfirmedCoins == 0, "Stop must preserve reliable confirmed count.");
         devices.BillAcceptor.Dispose(); devices.Hopper.Dispose();
 
+#endif
         var request = CcTalkCodec.Encode(3, 1, 167, 0x11, 0x22, 0x33, 10);
         Check(request[1] == 4 && (request.Sum(x => (int)x) & 255) == 0, "ccTalk payout framing/checksum.");
         var countFrame = CcTalkCodec.Encode(1, 3, 0, 0x56, 0x34, 0x12);
@@ -122,17 +137,26 @@ internal static class Program
         Check(CcTalkCodec.CounterDelta(0xFFFFFE, 1) == 3, "Counter rollover must preserve delta.");
         var state = CcTalkCodec.ParsePaymentStatus(new byte[] { 7, 0, 3, 2 });
         Check(state.Sequence == 7 && state.Remaining == 0 && state.PaidLast == 3 && state.UnpaidLast == 2, "Partial status parsing.");
+        var activePriorPayment = HopperStatusClassifier.Classify(new HopperPaymentStatus(7, 4, 2, 0));
+        Check(activePriorPayment.Connected && activePriorPayment.Fault != null, "An old external active payout must block readiness even with UnpaidLast zero.");
+        Check(activePriorPayment.AvailableCoins == null && !activePriorPayment.Empty, "Active payout status must not invent stock or Empty evidence.");
+        var completePriorPayment = HopperStatusClassifier.Classify(new HopperPaymentStatus(8, 0, 25, 0));
+        Check(completePriorPayment.Connected && completePriorPayment.Fault == null && completePriorPayment.AvailableCoins == null, "An idle completed historical payout remains ready with unknown stock.");
+        Check(HopperStatusClassifier.Classify(new HopperPaymentStatus(8, 0, 3, 2)).Fault != null, "Historical unpaid coins block readiness.");
+        Check(HopperStatusClassifier.Classify(new HopperPaymentStatus(8, 0, 25, 0), true).Fault != null, "Latched uncertainty blocks readiness even after a clean idle status.");
+        Check(!HopperStatusClassifier.Classify(null, false, false).Connected, "Disconnected status stays disconnected.");
+        Throws<ArgumentNullException>(() => HopperStatusClassifier.Classify(null));
         Throws<InvalidDataException>(() => CcTalkCodec.ParseDispenseCount(new byte[] { 1, 2 }));
         Throws<InvalidDataException>(() => CcTalkCodec.ParsePaymentStatus(new byte[] { 1, 2, 3 }));
         Throws<InvalidDataException>(() => CcTalkCodec.DecodeReply(countFrame, 4));
         var corrupted = (byte[])countFrame.Clone(); corrupted[4] ^= 1;
         Throws<InvalidDataException>(() => CcTalkCodec.DecodeReply(corrupted, 3));
         Throws<CcTalkNackException>(() => CcTalkCodec.DecodeReply(CcTalkCodec.Encode(1, 3, 5), 3));
-        Throws<ArgumentException>(() => DeviceFactory.Create(new DeviceOptions { Mode = "Hardware" }));
+        Throws<InvalidDataException>(() => DeviceFactory.Create(new DeviceOptions { Mode = "Hardware", CoinValueMinor = 100 }));
     }
     public static int Main()
     {
-        try { Run().GetAwaiter().GetResult(); Console.WriteLine("PASS: " + checks + " device checks (simulator/ccTalk codec; no hardware or money)."); return 0; }
+        try { Run().GetAwaiter().GetResult(); Console.WriteLine("PASS: " + checks + " device checks (capabilities/NV9 poll/ccTalk status; no hardware or money)."); return 0; }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
     }
 }

@@ -1,7 +1,7 @@
 using System;
 using System.IO;
-using System.Runtime.Serialization.Json;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using ChangeClip.Backend;
 using ChangeClip.Contracts;
@@ -11,67 +11,62 @@ namespace ChangeClip.Frontend
 {
     internal static class Bootstrapper
     {
-        private static Mutex _instance;
-        private static bool _ownsMutex;
-
+        private static ApplicationLease lease;
         public static MainWindow CreateWindow()
         {
+            try { lease = ApplicationLease.Acquire(); }
+            catch (Exception error)
+            {
+                MessageBox.Show(error.Message, "ChangeClip", MessageBoxButton.OK, MessageBoxImage.Information);
+                return null;
+            }
             try
             {
-                _instance = new Mutex(true, "Local\\ChangeClip-Exchange", out _ownsMutex);
-                if (!_ownsMutex) throw new InvalidOperationException("ChangeClip je već pokrenut. Koristite postojeći prozor.");
-                string userRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ChangeClip");
-                Directory.CreateDirectory(userRoot);
-                string localConfig = Path.Combine(userRoot, "device.local.json");
-                if (!File.Exists(localConfig))
-                {
-                    string example = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config", "device.example.json");
-                    File.Copy(example, localConfig, false);
-                }
-                DeviceOptions options;
-                using (var input = File.OpenRead(localConfig))
-                    options = (DeviceOptions)new DataContractJsonSerializer(typeof(DeviceOptions)).ReadObject(input);
-                Validate(options);
+                var paths = new RuntimePaths();
+                Directory.CreateDirectory(paths.Root);
+#if HARDWARE_RELEASE
+                string config = paths.HardwareConfig;
+                string exampleName = "device.hardware.example.json";
+#else
+                string config = Path.Combine(paths.Root, "device.local.json");
+                string exampleName = "device.example.json";
+#endif
+                if (!File.Exists(config)) File.Copy(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config", exampleName), config, false);
+                var options = DeviceConfiguration.Read(config);
+#if HARDWARE_RELEASE
+                DeviceOptionsValidator.Validate(options, requireHardware: true);
+                if (!DeviceFactory.Nv9RuntimeAvailable) throw new InvalidOperationException("Izdanje nema ugrađen NV9 adapter. Ponovo instalirajte potpuno izdanje.");
+#else
+                DeviceOptionsValidator.Validate(options);
+#endif
                 bool simulator = string.Equals(options.Mode, "Simulator", StringComparison.OrdinalIgnoreCase);
-                string dataRoot = Path.Combine(userRoot, simulator ? "simulator" : "hardware", "data");
-                Directory.CreateDirectory(dataRoot);
-                DeviceBundle devices = DeviceFactory.Create(options);
-                var session = new ExchangeService(devices.BillAcceptor, devices.Hopper,
-                    new JsonTransactionStore(Path.Combine(dataRoot, "transactions.json")), options.CoinValueMinor);
-                var window = new MainWindow(session, devices.Simulator);
-                window.Closed += (sender, args) => ReleaseInstance();
-                return window;
+                string dataRoot = simulator ? Path.Combine(paths.Root, "simulator", "data") : paths.HardwareData;
+                var store = new LedgerStore(Path.Combine(dataRoot, "ledger-v3"), Path.Combine(dataRoot, "transactions.json"));
+                var devices = DeviceFactory.Create(options);
+                var session = new ExchangeService(devices.BillAcceptor, devices.Hopper, store, options.CoinValueMinor);
+                return Attach(new MainWindow(session, devices.Simulator));
             }
             catch (Exception error)
             {
-                ReleaseInstance();
-                MessageBox.Show("ChangeClip se ne može pokrenuti. " + error.Message,
-                    "ChangeClip", MessageBoxButton.OK, MessageBoxImage.Error);
-                Application.Current.Shutdown(1);
-                return null;
+                return Attach(new MainWindow(new ConfigurationFaultSession(
+                    "Uređaji nisu spremni. " + error.Message + " Zatvorite aplikaciju i podesite uređaje pomoću ChangeClip.Service configure. Uputstvo je u SERVIS.md.")));
             }
         }
-
-        private static void Validate(DeviceOptions options)
+        private static MainWindow Attach(MainWindow window)
         {
-            if (options == null) throw new InvalidDataException("Konfiguracija nije ispravna.");
-            bool simulator = string.Equals(options.Mode, "Simulator", StringComparison.OrdinalIgnoreCase);
-            bool hardware = string.Equals(options.Mode, "Hardware", StringComparison.OrdinalIgnoreCase);
-            if (!simulator && !hardware) throw new InvalidDataException("Mode mora biti Simulator ili Hardware.");
-            if (options.CoinValueMinor <= 0 || 1000 % options.CoinValueMinor != 0 || 2000 % options.CoinValueMinor != 0)
-                throw new InvalidDataException("Apoen kovanice mora moći tačno isplatiti 10 i 20 KM.");
-            if (options.SimulatorCoins < 0) throw new InvalidDataException("Zaliha simulatora ne može biti negativna.");
-            if (hardware && (string.IsNullOrWhiteSpace(options.Nv9Port) || string.IsNullOrWhiteSpace(options.HopperPort)))
-                throw new InvalidDataException("Za uređaje upišite stvarne nv9Port i hopperPort COM portove.");
-            if (hardware && string.Equals(options.Nv9Port, options.HopperPort, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException("NV9 i hopper moraju koristiti odvojene COM portove.");
+            window.Closed += (sender, args) => { lease?.Dispose(); lease = null; };
+            return window;
         }
-
-        private static void ReleaseInstance()
-        {
-            if (_instance == null) return;
-            if (_ownsMutex) { _instance.ReleaseMutex(); _ownsMutex = false; }
-            _instance.Dispose(); _instance = null;
-        }
+    }
+    internal sealed class ConfigurationFaultSession : IExchangeSession
+    {
+        public ConfigurationFaultSession(string message) { Snapshot = new ExchangeSnapshot(ExchangeState.Fault, message); }
+        public ExchangeSnapshot Snapshot { get; private set; }
+        public event EventHandler<ExchangeSnapshot> Changed { add { } remove { } }
+        public Task StartAsync(CancellationToken token) { return Task.CompletedTask; }
+        public Task RefreshReadinessAsync(CancellationToken token) { return Task.CompletedTask; }
+        public Task ExchangeAsync(CancellationToken token) { return Task.CompletedTask; }
+        public Task ReturnAsync(CancellationToken token) { return Task.CompletedTask; }
+        public void Dispose() { }
     }
 }

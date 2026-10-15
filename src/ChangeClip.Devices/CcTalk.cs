@@ -129,12 +129,12 @@ namespace ChangeClip.Devices
             return Task.Run(() =>
             {
                 token.ThrowIfCancellationRequested();
-                if (!connected) return new HopperStatus(false, false, null, "Hopper nije spojen.");
+                if (!connected) return HopperStatusClassifier.Classify(null, uncertain, false);
                 try
                 {
                     var status = CcTalkCodec.ParsePaymentStatus(Request(166));
                     // Opto command 236 is test-only, not evidence of available payout stock.
-                    return new HopperStatus(true, false, null, uncertain ? "Prethodna isplata je nejasna; potrebno usklađivanje." : status.UnpaidLast > 0 ? "Prethodna isplata nije potpuna." : null);
+                    return HopperStatusClassifier.Classify(status, uncertain);
                 }
                 catch (Exception ex) { return new HopperStatus(false, false, null, ex.Message); }
             });

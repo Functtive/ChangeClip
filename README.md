@@ -1,56 +1,46 @@
 # ChangeClip
 
-Jednostavna Windows aplikacija za provjeru NV9 prihvata novčanica i Azkoyen U-II isplate kovanica. Valuta je BAM; prihvataju se novčanice od 10 i 20 KM.
+Windows aplikacija za automatski prihvat novčanica od 10 i 20 KM preko NV9 USB/SSP i isplatu kovanica preko standardnog Azkoyen U-II ccTalk hoppera. NV9 se ručno priprema za BAM prije upotrebe; aplikacija ne programira firmware ili dataset.
 
-NV9 se ručno programira/podešava prije upotrebe. Aplikacija preko USB-a samo upravlja radom uređaja; programiranje firmwarea ili dataseta nije dio projekta. U aplikaciju uključujemo samo funkcije potvrđene u relevantnoj dostavljenoj dokumentaciji.
+NV9 prima više novčanica i sabira iznos u **Primljeno**. Jedno dugme **Razmijeni** zaustavlja novi prihvat, sačeka potvrdu novčanice koja je već ušla i pokreće isplatu ukupnog iznosa. Nakon pune isplate prikaz se vraća na 0,00 KM i prijem se ponovo omogućava ako je hopper spreman. Nema dugmeta za vraćanje spremljene novčanice.
 
-## Tok aplikacije
+Potvrđene uplate, pojedinačne isplatne grupe i dugovi čuvaju se na disku. Nezavršena isplata se pri restartu ne ponavlja automatski. Servisni alat prikazuje sve otvorene zapise i trajno evidentira podmirenje nakon fizičke provjere i ručne isplate.
 
-1. NV9 je omogućen dok aplikacija čeka novac. Svaka podržana novčanica automatski se prihvati i spremi; potvrđeni CREDIT odmah se trajno evidentira.
-2. Može se ubaciti više novčanica od **10 ili 20 KM**. **Primljeno** sabira njihov iznos, npr. 10 + 20 = 30 KM. Hopper se tada ne pokreće.
-3. Klik na **Razmijeni** isključuje novi prihvat i čeka završetak novčanice koja je već ušla, pa hopper isplaćuje ukupan potvrđeni iznos. Ponovljeni klik ne ponavlja isplatu.
-4. Potpuna isplata prikazuje **Uspješno**, vraća prikaz na **0,00 KM** i ponovo omogućava NV9. Djelimična isplata prikazuje i čuva **Dužni smo vam još X KM**, uz blokiran novi prihvat.
-5. Potvrđeni bilans prije klika čuva se nakon zatvaranja aplikacije. Pri restartu čeka ručni klik; nejasna ili započeta isplata zahtijeva provjeru, bez automatskog ponavljanja.
-6. Podrazumijevani simulator radi bez uređaja. Hardware adapteri koriste NV9 USB/eSSP i standardni U-II ccTalk; fizički rad na ciljnom računaru još nije potvrđen.
-
-Na glavnom ekranu nema dugmeta Vrati/Odustani/Odbaci. Radni tok ne čeka korisničku odluku u escrowu i ne vraća spremljene novčanice pri zatvaranju. Potvrđeni novac ostaje u evidenciji do isplate ili ručnog razrješenja.
+Korisničko izdanje 0.3.0 sadrži pravi NV9 adapter i nema simulator. Bez ispravne konfiguracije ili povezanih uređaja prijem novca ostaje blokiran. Automatizirane razvojne provjere koriste zasebne testne uređaje; njihov kod ne ulazi u korisnički paket.
 
 ## Struktura
 
 ```text
-src/
-  ChangeClip.Contracts/   Zajednički interfejsi, događaji i konfiguracija
-  ChangeClip.Frontend/     WPF korisnički ekran
-  ChangeClip.Backend/      Tok razmjene i evidencija transakcija
-  ChangeClip.Devices/      NV9, ccTalk i simulator
-tests/                    Backend, protokol, integracije i klikovi/render frontenda
-tools/                    Build, pakovanje i priprema USB drivera
-installer/                Windows Setup definicija
-vendor/ITL/               Lokalni ITL runtime; nije na Gitu
-config/                   Konfiguracija uređaja
-artifacts/                EXE installer, portable ZIP i frontend PNG; nije na Gitu
+src/ChangeClip.Contracts/  Interfejsi, konfiguracija, zajednička validacija
+src/ChangeClip.Frontend/   WPF korisnički ekran, navy/ljubičasti dizajn
+src/ChangeClip.Backend/    Tok razmjene, atomska evidencija, podmirenje dugova
+src/ChangeClip.Devices/    NV9 USB/eSSP, standardni U-II ccTalk
+src/ChangeClip.Service/    Konfiguracija i servisna evidencija bez komandi za isplatu
+tests/                    Automatizirane provjere pet komponenti
+tools/                    Build, pakovanje, provjera integriteta, USB driveri
+installer/                Windows Setup
+config/                   Primjeri konfiguracije
+vendor/ITL/               Lokalni originalni SDK runtime, nije na Gitu
+artifacts/                Installer, portable ZIP i slika interfejsa, nije na Gitu
 ```
 
-## Trenutno stanje
+## Instalacija
 
-Implementiran je prototip C#/.NET Framework 4.8 i WPF, s navy/ljubičastim interfejsom, lokalnom atomskom JSON evidencijom i simulatorom. SQLite/native baza nije potrebna. Lokalni ITL eSSP SDK v2.0.9 je upoređen s GitHub alternativama; runtime se dodaje lokalno prije hardware builda.
+Paket `artifacts/ChangeClip-Setup-0.3.0.exe` namijenjen je drugom Windows 10/11 računaru s .NET Framework 4.8. Razvojni SDK, Git i Visual Studio nisu potrebni. Portable ZIP mora se raspakovati u cijelosti.
 
-Build i automatizirane provjere rade na razvojnom Windows računaru. Za stvarni rad trebaju tačan NV9 model/BAM dataset, standardna U-II varijanta, odgovarajući USB–ccTalk dongle/driver, stvarni COM portovi i apoen kovanice. Drivere sada ne instaliramo jer uređaji nisu spojeni.
+Podesiti stvarne COM portove, apoen kovanice i protokol prema uređajima. Podržan je standardni U-II ccTalk; Encrypted/PIN varijanta zahtijeva potvrdu modela i odgovarajući adapter. Fizičko povezivanje, ponašanje bežela i stvarni broj isplaćenih kovanica provjerava vlasnik na ciljnom računaru.
 
-## Pokretanje i distribucija
+[Instalacija](docs/INSTALACIJA.md) · [USB driveri](docs/USB_DRIVERS.md) · [Servis](docs/SERVIS.md) · [Hardverski test](docs/HARDWARE_TEST.md) · [Softverske provjere](docs/PROVJERE.md)
 
-`artifacts/ChangeClip-Setup-0.2.0.exe` instalira aplikaciju na drugi Windows računar. Portable ZIP se mora raspakovati u cijelosti, pa pokrenuti `ChangeClip.exe` u `artifacts/portable-0.2.0`. Ciljnom računaru trebaju .NET Framework 4.8 i odgovarajući USB driveri; razvojni SDK i Git nisu potrebni.
+## Izrada iz izvornog koda
 
 ```powershell
 .\tools\Prepare-BuildTools.ps1 -WithInstaller
+# Originalni lokalni runtime mora biti vendor\ITL\ITLlib.dll
 .\tools\Build.ps1
 .\tools\Package.ps1
 ```
 
-Konfiguracija i transakcije nalaze se u `%LocalAppData%\ChangeClip`, odvojeno za simulator i hardware. Instalacija/nadogradnja ne briše evidenciju. Lokalni vendor DLL, razvojni alati i distributivi nisu na Gitu.
+Verzija dolazi iz `Directory.Build.props`. Hardware build ima zasebne izlaze i obavezno provjerava ugrađeni NV9 adapter. Paket nastaje iz novog foldera, s dozvoljenim spiskom fajlova, SHA256 manifestom i provjerom izvršivog runtimea. Ne povlači staru konfiguraciju ili DLL iz prethodnog distributiva.
 
-[Instalacija i konfiguracija](docs/INSTALACIJA.md) · [USB driveri](docs/USB_DRIVERS.md) · [Provjere prototipa](docs/PROVJERE.md) · [Raspodjela zadataka](docs/TIM_I_KORACI.md)
-
-[Detaljni plan razvoja](PLAN_RAZVOJA.md)
-
-[Poređenje NV9 SDK-a](docs/NV9_SDK_POREDJENJE.md)
+Podaci su u `%LocalAppData%\ChangeClip`. Instalacija i nadogradnja ih ne brišu. Lokalni ključevi, evidencija novca, vendor DLL i distributivi ne objavljuju se u Git repozitoriju.

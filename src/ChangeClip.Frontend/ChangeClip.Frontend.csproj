@@ -11,7 +11,16 @@
     <ProjectReference Include="..\ChangeClip.Backend\ChangeClip.Backend.csproj" />
     <ProjectReference Include="..\ChangeClip.Devices\ChangeClip.Devices.csproj" />
   </ItemGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(RequireHardware)' != 'true'">
     <None Include="..\..\config\device.example.json" Link="config\device.example.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(RequireHardware)' == 'true'">
+    <None Include="..\..\config\device.hardware.example.json" Link="config\device.hardware.example.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(RequireHardware)' == 'true'">
+    <Page Remove="MainWindow.xaml" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(RequireHardware)' != 'true'">
+    <Page Remove="MainWindow.Hardware.xaml" />
   </ItemGroup>
 </Project>

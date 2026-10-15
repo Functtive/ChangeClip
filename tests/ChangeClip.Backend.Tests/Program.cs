@@ -9,12 +9,12 @@ using ChangeClip.Contracts;
 
 namespace ChangeClip.Backend.Tests
 {
-    internal static class Program
+    internal static partial class Program
     {
         private static readonly CancellationToken None = CancellationToken.None;
         private static int Main()
         {
-            try { Run().GetAwaiter().GetResult(); Console.WriteLine("PASS: 28 backend wallet scenarios"); return 0; }
+            try { Run().GetAwaiter().GetResult(); Console.WriteLine("PASS: backend wallet, readiness, ledger and resolution scenarios"); return 0; }
             catch (Exception error) { Console.Error.WriteLine(error); return 1; }
         }
         private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
@@ -25,13 +25,13 @@ namespace ChangeClip.Backend.Tests
             await FundedRestart(); await RestartPayoutBlocked(); await FundingPendingRestart(); await LegacyBlocked();
             await EmptyStartDebt(); await FullPayoutAndEmpty(); await UnknownCount(); await CancellationProgress();
             await LateCreditPreserved(); await JournalFailure(); await DuplicateAcrossRestart(); await DisposeFunded();
-            await DisconnectedFunded(); await BatchIntentBeforeSideEffect(); await RejectedDoesNotCredit(); await IdleWithoutStacked(); await CreditThenRejected(); await DisposeInFlight(); await DisposePayout(); AtomicJsonJournal();
+            await DisconnectedFunded(); await BatchIntentBeforeSideEffect(); await RejectedDoesNotCredit(); await IdleWithoutStacked(); await CreditThenRejected(); await DisposeInFlight(); await DisposePayout(); AtomicJsonJournal(); await ReadinessScenarios(); LedgerScenarios();
         }
         private sealed class Rig : IDisposable
         {
             public readonly Acceptor Bill = new Acceptor(); public readonly Hopper Coins = new Hopper();
             public readonly MemoryStore Store; public readonly ExchangeService Service;
-            public Rig(MemoryStore store = null) { Store = store ?? new MemoryStore(); Service = new ExchangeService(Bill, Coins, Store, 100); }
+            public Rig(MemoryStore store = null, bool enforceKnownStock = false) { Store = store ?? new MemoryStore(); Service = new ExchangeService(Bill, Coins, Store, 100, enforceKnownStock); }
             public Task Start() { return Service.StartAsync(None); }
             public void Dispose() { Service.Dispose(); }
         }

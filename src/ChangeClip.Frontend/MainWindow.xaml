@@ -116,10 +116,10 @@
                         <TextBox x:Name="CoinStockBox" Width="80" Padding="8,6"
                                  Background="#10162B" Foreground="{StaticResource Ink}"
                                  BorderBrush="{StaticResource Outline}" VerticalContentAlignment="Center"
-                                 IsEnabled="{Binding CanInsertSimulatorBanknote}" />
+                                 IsEnabled="{Binding CanAdjustSimulatorStock}" />
                         <Button Content="Primijeni" Style="{StaticResource SimulatorButton}"
                                 Padding="12,6" MinHeight="36" Margin="9,0,0,0"
-                                IsEnabled="{Binding CanInsertSimulatorBanknote}" Click="ApplyCoins_Click" />
+                                IsEnabled="{Binding CanAdjustSimulatorStock}" Click="ApplyCoins_Click" />
                     </DockPanel>
                 </StackPanel>
             </Border>

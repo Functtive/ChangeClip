@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,11 +18,14 @@ namespace ChangeClip.Contracts
     {
         public ExchangeSnapshot(ExchangeState state, string message, int receivedMinor = 0,
             int paidMinor = 0, int owedMinor = 0, bool canExchange = false,
-            bool canReturn = false, bool isDebtExact = true, string transactionId = null)
+            bool canReturn = false, bool isDebtExact = true, string transactionId = null,
+            bool canAcceptBanknotes = false, IReadOnlyList<UnresolvedClaim> unresolvedClaims = null)
         {
             State = state; Message = message; ReceivedMinor = receivedMinor;
             PaidMinor = paidMinor; OwedMinor = owedMinor; CanExchange = canExchange;
             CanReturn = canReturn; IsDebtExact = isDebtExact; TransactionId = transactionId;
+            CanAcceptBanknotes = canAcceptBanknotes;
+            UnresolvedClaims = Array.AsReadOnly((unresolvedClaims ?? new UnresolvedClaim[0]).ToArray());
         }
         public ExchangeState State { get; private set; }
         public string Message { get; private set; }
@@ -31,6 +36,19 @@ namespace ChangeClip.Contracts
         public bool CanReturn { get; private set; }
         public bool IsDebtExact { get; private set; }
         public string TransactionId { get; private set; }
+        public bool CanAcceptBanknotes { get; private set; }
+        public IReadOnlyList<UnresolvedClaim> UnresolvedClaims { get; private set; }
+    }
+
+    public sealed class UnresolvedClaim
+    {
+        public UnresolvedClaim(string transactionId, string stage, int receivedMinor, int paidMinor, bool isDebtExact)
+        { TransactionId = transactionId; Stage = stage; ReceivedMinor = receivedMinor; PaidMinor = paidMinor; IsDebtExact = isDebtExact; }
+        public string TransactionId { get; private set; }
+        public string Stage { get; private set; }
+        public int ReceivedMinor { get; private set; }
+        public int PaidMinor { get; private set; }
+        public bool IsDebtExact { get; private set; }
     }
 
     public interface IExchangeSession : IDisposable
@@ -38,6 +56,7 @@ namespace ChangeClip.Contracts
         event EventHandler<ExchangeSnapshot> Changed;
         ExchangeSnapshot Snapshot { get; }
         Task StartAsync(CancellationToken cancellationToken);
+        Task RefreshReadinessAsync(CancellationToken cancellationToken);
         Task ExchangeAsync(CancellationToken cancellationToken);
         Task ReturnAsync(CancellationToken cancellationToken);
     }
@@ -133,7 +152,7 @@ namespace ChangeClip.Contracts
     {
         public DeviceOptions()
         {
-            Mode = "Simulator"; CoinValueMinor = 100; SimulatorCoins = 100;
+            Mode = "Hardware"; CoinValueMinor = 0; SimulatorCoins = 100;
             Nv9Port = ""; HopperPort = ""; HopperAddress = 3;
             Nv9Address = 0; HopperEcho = true; UseEncryptedSsp = true;
         }

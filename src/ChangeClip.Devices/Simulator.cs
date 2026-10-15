@@ -1,3 +1,4 @@
+#if !HARDWARE_RELEASE
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -5,28 +6,6 @@ using ChangeClip.Contracts;
 
 namespace ChangeClip.Devices
 {
-    public static class DeviceFactory
-    {
-        public static DeviceBundle Create(DeviceOptions options)
-        {
-            if (options == null) throw new ArgumentNullException(nameof(options));
-            if (string.Equals(options.Mode, "Simulator", StringComparison.OrdinalIgnoreCase))
-            {
-                var bill = new SimulatedBillAcceptor();
-                var hopper = new SimulatedCoinHopper(options.SimulatorCoins);
-                return new DeviceBundle(bill, hopper, new SimulatorControls(bill, hopper));
-            }
-            if (!string.Equals(options.Mode, "Hardware", StringComparison.OrdinalIgnoreCase))
-                throw new ArgumentException("Mode mora biti Simulator ili Hardware.");
-            if (string.IsNullOrWhiteSpace(options.Nv9Port) || string.IsNullOrWhiteSpace(options.HopperPort))
-                throw new ArgumentException("Hardware zahtijeva eksplicitne NV9 i hopper COM portove.");
-            if (string.Equals(options.Nv9Port, options.HopperPort, StringComparison.OrdinalIgnoreCase))
-                throw new ArgumentException("NV9 i ccTalk dongle moraju imati različite COM portove.");
-            if (options.HopperAddress < 2) throw new ArgumentException("Hopper adresa mora biti 2..255.");
-            return new DeviceBundle(new Nv9BillAcceptor(options), new AzkoyenCoinHopper(options));
-        }
-    }
-
     public sealed class SimulatedBillAcceptor : IBillAcceptor
     {
         private readonly object gate = new object();
@@ -121,3 +100,4 @@ namespace ChangeClip.Devices
         public void SetHopperCoins(int coins) => hopper.SetCoins(coins);
     }
 }
+#endif

@@ -1,6 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><TargetFramework>net48</TargetFramework><LangVersion>7.3</LangVersion></PropertyGroup>
-  <PropertyGroup Condition="Exists('..\..\vendor\ITL\ITLlib.dll')"><DefineConstants>$(DefineConstants);ITL_SDK</DefineConstants></PropertyGroup>
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework><LangVersion>7.3</LangVersion>
+    <ItlRuntimePath Condition="'$(ItlRuntimePath)' == ''">$(MSBuildProjectDirectory)\..\..\vendor\ITL\ITLlib.dll</ItlRuntimePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="Exists('$(ItlRuntimePath)')"><DefineConstants>$(DefineConstants);ITL_SDK</DefineConstants></PropertyGroup>
   <ItemGroup><ProjectReference Include="..\ChangeClip.Contracts\ChangeClip.Contracts.csproj" /></ItemGroup>
-  <ItemGroup Condition="Exists('..\..\vendor\ITL\ITLlib.dll')"><Reference Include="ITLlib"><HintPath>..\..\vendor\ITL\ITLlib.dll</HintPath><Private>true</Private></Reference></ItemGroup>
+  <ItemGroup Condition="Exists('$(ItlRuntimePath)')"><Reference Include="ITLlib"><HintPath>$(ItlRuntimePath)</HintPath><Private>true</Private></Reference></ItemGroup>
+  <Target Name="VerifyHardwareRuntime" BeforeTargets="BeforeCompile" Condition="'$(RequireHardware)' == 'true'">
+    <PropertyGroup>
+      <_CompiledItlSdk>$([System.Text.RegularExpressions.Regex]::IsMatch('$(DefineConstants)', '(^|;)ITL_SDK(;|$)'))</_CompiledItlSdk>
+      <_CompiledHardwareRelease>$([System.Text.RegularExpressions.Regex]::IsMatch('$(DefineConstants)', '(^|;)HARDWARE_RELEASE(;|$)'))</_CompiledHardwareRelease>
+    </PropertyGroup>
+    <Error Condition="!Exists('$(ItlRuntimePath)')" Text="Production hardware build requires vendor/ITL/ITLlib.dll (ItlRuntimePath). No simulator fallback is permitted." />
+    <Error Condition="'$(_CompiledItlSdk)' != 'True'" Text="Production hardware build requires the compiled ITL_SDK adapter capability." />
+    <Error Condition="'$(_CompiledHardwareRelease)' != 'True'" Text="Production hardware build requires HARDWARE_RELEASE so simulator types are excluded." />
+  </Target>
 </Project>
