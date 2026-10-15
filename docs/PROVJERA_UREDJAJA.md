@@ -4,7 +4,7 @@ Ovo je zaseban alat za provjeru NV9 i hoppera. Pokrenuti `ChangeClip.Provjera.ex
 
 1. Spojiti uređaj i kliknuti **Pronađi uređaje**. Svaki uređaj može se provjeriti samostalno.
 2. **Accept** uključuje NV9: prihvata i sprema novčanice od 10/20 KM, kao glavna aplikacija. Iznos raste prema potvrđenim događajima uređaja. **Zaustavi Accept** isključuje novi prihvat i čeka završetak već ubačene novčanice.
-3. Pored **Dispense** upisati broj kovanica. Dugme pokreće isplatu tog broja komada. Polje ispod prikazuje potvrđena očitanja i preostali broj. Ako je Accept uključen, prvo se zaustavlja.
+3. Pored **Dispense** upisati broj kovanica. Dugme pokreće isplatu tog broja komada. U drugom redu **Dispensing** pozeleni tokom isplate, a polje pored broji potvrđene kovanice od 0 do zadanog broja. Po završetku ili prekidu indikator se gasi, a očitani broj ostaje prikazan. Kratka poruka ispod pokazuje preostali broj ili grešku. Ako je Accept uključen, prvo se zaustavlja.
 
 Uređaji rade sa stvarnim novcem. Ovaj alat ne vodi razmjenu za korisnika: primljeni testni iznos i zahtjev za isplatu unose se/provjeravaju zasebno, bez izmjene bilansa i dugova glavne aplikacije. Ako isplata nije potpuno potvrđena, nalog se ne ponavlja automatski. Pri zatvaranju prozora čeka se završno očitanje i zatvaranje portova.
 

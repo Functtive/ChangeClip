@@ -9,14 +9,15 @@ namespace ChangeClip.Service
 {
     public sealed class HopperTestReading : EventArgs
     {
-        public HopperTestReading(int requested, int confirmed, bool reliable, PayoutOutcome outcome, string message)
-        { RequestedCoins = requested; ConfirmedCoins = confirmed; CountReliable = reliable; Outcome = outcome; Message = message; }
+        public HopperTestReading(int requested, int confirmed, bool reliable, PayoutOutcome outcome, string message, bool isDispensing = false)
+        { RequestedCoins = requested; ConfirmedCoins = confirmed; CountReliable = reliable; Outcome = outcome; Message = message; IsDispensing = isDispensing; }
         public int RequestedCoins { get; private set; }
         public int ConfirmedCoins { get; private set; }
         public int RemainingCoins { get { return Math.Max(0, RequestedCoins - ConfirmedCoins); } }
         public bool CountReliable { get; private set; }
         public PayoutOutcome Outcome { get; private set; }
         public string Message { get; private set; }
+        public bool IsDispensing { get; private set; }
     }
 
     public sealed class HopperTestSession
@@ -84,12 +85,13 @@ namespace ChangeClip.Service
                     token.ThrowIfCancellationRequested();
                     int batch = Math.Min(255, requested - confirmed), baseCount = confirmed, batchConfirmed = 0;
                     commandStarted = true;
+                    Report(new HopperTestReading(requested, confirmed, true, PayoutOutcome.Completed, "Isplata u toku.", true));
                     var result = await device.PayoutAsync(batch, new InlineProgress(count =>
                     {
                         if (count < batchConfirmed || count < 0 || count > batch) throw new InvalidDataException("Nepouzdan hopper brojač.");
                         if (count == batchConfirmed) return;
                         batchConfirmed = count; confirmed = baseCount + count;
-                        Report(new HopperTestReading(requested, confirmed, true, PayoutOutcome.Completed, "Isplata u toku."));
+                        Report(new HopperTestReading(requested, confirmed, true, PayoutOutcome.Completed, "Isplata u toku.", true));
                     }), token).ConfigureAwait(false);
                     if (result == null || result.RequestedCoins != batch || result.ConfirmedCoins < batchConfirmed || result.ConfirmedCoins > batch || result.ConfirmedCoins < 0 || !result.CountReliable || result.Outcome == PayoutOutcome.Uncertain)
                     {

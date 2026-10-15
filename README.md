@@ -6,7 +6,7 @@ NV9 prima više novčanica i sabira iznos u **Primljeno**. Jedno dugme **Razmije
 
 Potvrđene uplate, pojedinačne isplatne grupe i dugovi čuvaju se na disku. Nezavršena isplata se pri restartu ne ponavlja automatski. Servisni alat prikazuje sve otvorene zapise i trajno evidentira podmirenje nakon fizičke provjere i ručne isplate.
 
-Izdanje 0.5.0 isporučuje zaseban alat **ChangeClip — Provjera uređaja** za provjeru NV9 i hoppera, sa stvarnim adapterima i bez simulatora. Glavni tok razmjene nije mijenjan. Automatizirane razvojne provjere koriste zasebne testne uređaje; njihov kod ne ulazi u isporučeni paket.
+Izdanje 0.5.1 isporučuje zaseban alat **ChangeClip — Provjera uređaja** za provjeru NV9 i hoppera, sa stvarnim adapterima i bez simulatora. Glavni tok razmjene nije mijenjan. Automatizirane razvojne provjere koriste zasebne testne uređaje; njihov kod ne ulazi u isporučeni paket.
 
 ## Struktura
 
@@ -26,7 +26,7 @@ artifacts/                Installer, portable ZIP i slika interfejsa, nije na Gi
 
 ## Instalacija
 
-Za provjeru uređaja raspakovati cijeli `artifacts/ChangeClip-Provjera-0.5.0.zip` i otvoriti `ChangeClip.Provjera.exe`. Namijenjen je Windows 10/11 računaru s .NET Framework 4.8. Razvojni SDK, Git i Visual Studio nisu potrebni. Prethodno izdanje 0.4.0, njegov installer, portable paket i izvorni kod sačuvani su u `artifacts/archive/0.4.0`.
+Za provjeru uređaja raspakovati cijeli `artifacts/ChangeClip-Provjera-0.5.1.zip` i otvoriti `ChangeClip.Provjera.exe`. Namijenjen je Windows 10/11 računaru s .NET Framework 4.8. Razvojni SDK, Git i Visual Studio nisu potrebni. Prethodno izdanje 0.4.0, njegov installer, portable paket i izvorni kod sačuvani su u `artifacts/archive/0.4.0`.
 
 Dvoklikom na `ChangeClip.Service.exe` otvoriti prozor podešavanja i izabrati stvarni apoen kovanice. Aplikacija automatski traži USB/COM portove i prepoznaje uloge uređaja preko SSP/eSSP i ccTalk odgovora. Dok nema oba uređaja, prijem novca ostaje blokiran i aplikacija čeka priključivanje. Podržan je standardni U-II ccTalk; Encrypted/PIN varijanta zahtijeva potvrdu modela i odgovarajući adapter. Fizičko povezivanje, ponašanje bežela i stvarni broj isplaćenih kovanica provjerava vlasnik na ciljnom računaru.
 
@@ -34,7 +34,7 @@ Dvoklikom na `ChangeClip.Service.exe` otvoriti prozor podešavanja i izabrati st
 
 [Upute za zasebni alat za provjeru uređaja](docs/PROVJERA_UREDJAJA.md).
 
-U servisnom prozoru **Accept** uključuje stvarni prihvat i spremanje novčanica od 10/20 KM. **Zaustavi Accept** isključuje novi prihvat i čeka novčanicu koja je već ušla. Za hopper unijeti broj kovanica i pritisnuti **Dispense**; prikaz ispod prati potvrđena očitanja. Ovaj broj predstavlja kovanice, a ne KM. Dispense prvo zaustavlja NV9 i ne ponavlja neizvjesnu isplatu. Ove provjere uređaja su nezavisne od korisničkog bilansa glavne aplikacije.
+U servisnom prozoru **Accept** uključuje stvarni prihvat i spremanje novčanica od 10/20 KM. **Zaustavi Accept** isključuje novi prihvat i čeka novčanicu koja je već ušla. Za hopper unijeti broj kovanica i pritisnuti **Dispense**. Ispod je **Dispensing** sa zelenim indikatorom tokom isplate i zasebnim brojačem koji raste od 0 prema potvrđenim kovanicama. Završni broj ostaje vidljiv, a indikator se gasi. Ovaj broj predstavlja kovanice, a ne KM. Dispense prvo zaustavlja NV9 i ne ponavlja neizvjesnu isplatu. Ove provjere uređaja su nezavisne od korisničkog bilansa glavne aplikacije.
 
 ## Izrada iz izvornog koda
 

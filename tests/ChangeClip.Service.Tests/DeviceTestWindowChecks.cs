@@ -33,10 +33,10 @@ internal static class DeviceTestWindowChecks
         Until(() => hopper.Progress != null);
         Until(() => window.Nv9Test.TotalText.Text.Contains("30"));
         hopper.Progress.Report(2);
-        Until(() => window.HopperTest.ReadingsTextBox.Text.Contains("2"));
+        Until(() => window.HopperTest.DispensedCountTextBox.Text == "2");
         Require(bill.Disposed && hopper.PayoutCalls == 1,
             "hopper starts only after NV9 closes its port and releases the shared lease");
-        Require(!window.HopperTest.ReadingsTextBox.Text.Contains("4 / 4"),
+        Require(window.HopperTest.IsDispensing && window.HopperTest.DispensedCountTextBox.Text != "4",
             "requested coins are not presented as physically counted coins");
         Task repeated = window.HopperTest.DispenseAsync();
         Require(hopper.PayoutCalls == 1, "repeated click cannot issue another payout");

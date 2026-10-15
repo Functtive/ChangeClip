@@ -1,4 +1,4 @@
-# Softverske provjere ChangeClip 0.5.0
+# Softverske provjere ChangeClip 0.5.1
 
 Provjereno 2026-10-15 na razvojnom Windows računaru, uz .NET Framework 4.8 i lokalni .NET SDK 8.0.426. Fizički uređaji nisu povezivani niti su driveri instalirani.
 
@@ -12,6 +12,7 @@ Provjereno 2026-10-15 na razvojnom Windows računaru, uz .NET Framework 4.8 i lo
 | Servisni CLI i podešavanje | 41 provjera prošla: eksplicitna konfiguracija, odbijanje nevažećih opcija, zabrana promjene uz aktivnu aplikaciju, pregled bez izmjene, fingerprint, ručno podmirenje i idempotentno ponavljanje |
 | NV9 Accept | Potvrđeni Credit/Stacked događaji, deduplikacija, završetak novčanice nakon isključenja, greška/prekid USB veze, paralelni start i zadržavanje porta pri neuspjelom zatvaranju |
 | Hopper Dispense | Stvarna očitanja kroz adapter interfejs, djelimična isplata, grupe od najviše 255 kovanica, kumulativni brojač, neizvjesni rezultat bez ponavljanja, dupli klik i čekanje završnog rezultata pri zatvaranju |
+| Dispensing prikaz | Zasebno polje za potvrđeni broj, zeleno tokom naloga i pojedinačnih očitanja, ugašeno po završetku/djelimičnoj/neizvjesnoj isplati, završni broj ostaje vidljiv i vraća se na 0 pri novom nalogu |
 | Servisni prozor zajedno | Accept → deaktivacija i završna novčanica → zatvaranje NV9 porta → Dispense; potvrđeno 2 od 4 tokom isplate, završno 4 od 4, bez promjene korisničke evidencije |
 | Obavezni NV9 runtime | Korisnički build prijavljuje nv9Runtime=true, simulatorCompiled=false, ITLlib1.0.0.3; negativni build bez SDK-a očekivano odbijen |
 

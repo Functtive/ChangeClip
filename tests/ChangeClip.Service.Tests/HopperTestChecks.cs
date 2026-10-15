@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
+using System.Windows.Media;
 using ChangeClip.Contracts;
 using ChangeClip.Service;
 
@@ -19,8 +20,9 @@ public static class HopperTestChecks
         FailedPortCloseKeepsLease();
         ControlInputAndDuplicateClick();
         ControlRetainsFailedClose();
+        CounterResetsForNextPayout();
         ShutdownBeforeDispenseDoesNotConnect();
-        Console.WriteLine("PASS: hopper Dispense confirmed counters, batching, no retry, duplicate click and shutdown lease");
+        Console.WriteLine("PASS: hopper Dispense live counter/green indicator, batching, no retry, duplicate click and shutdown lease");
     }
     private static DeviceOptions Options()
     { return new DeviceOptions { Mode = "Hardware", Nv9Port = "", HopperPort = "COM8", CoinValueMinor = 0, AutoDetectPorts = true }; }
@@ -88,16 +90,23 @@ public static class HopperTestChecks
         {
             Check(control.IsActive, "IsActive was not set before stopping NV9"); beforeCalls++; return before.Task;
         }, o => { factories++; return fake; });
+        Check(control.DispensedCountTextBox.IsReadOnly && control.DispensedCountTextBox.Text == "0" && !control.IsDispensing,
+            "Dispensing starts inactive with a read-only zero counter");
         control.CoinCountTextBox.Text = "0";
         control.DispenseAsync().GetAwaiter().GetResult(); Check(beforeCalls == 0 && !control.IsActive, "invalid GUI count started hardware");
         control.CoinCountTextBox.Text = "10";
         var first = control.DispenseAsync(); var duplicate = control.DispenseAsync();
-        Check(control.IsActive && !control.DispenseButton.IsEnabled && ReferenceEquals(first, duplicate) && beforeCalls == 1 && factories == 0, "duplicate click or beforeDispense race");
+        Check(control.IsActive && !control.IsDispensing && !control.DispenseButton.IsEnabled && ReferenceEquals(first, duplicate) && beforeCalls == 1 && factories == 0, "duplicate click or beforeDispense race");
         before.SetResult(true); PumpUntil(() => fake.Requests.Count == 1);
-        fake.Progress.Report(2); PumpUntil(() => control.ReadingsTextBox.Text.Contains("Očitano: 2 / 10"));
-        Check(!control.ReadingsTextBox.Text.Contains("Očitano: 10 / 10"), "GUI displayed requested count without confirmation");
+        PumpUntil(() => control.IsDispensing);
+        Check(control.DispensedCountTextBox.Text == "0" && ((SolidColorBrush)control.DispensingIndicator.Fill).Color == Color.FromRgb(60, 211, 139),
+            "indicator must turn green when payout starts, before the first counted coin");
+        fake.Progress.Report(1); PumpUntil(() => control.DispensedCountTextBox.Text == "1");
+        fake.Progress.Report(2); PumpUntil(() => control.DispensedCountTextBox.Text == "2");
+        Check(control.IsDispensing && control.DispensedCountTextBox.Text != "10", "GUI displayed requested count without confirmation");
         fake.Completion.SetResult(new PayoutResult(10, 5, PayoutOutcome.Empty)); PumpUntil(() => first.IsCompleted); Drain();
-        Check(control.ReadingsTextBox.Text.Contains("Očitano: 5 / 10") && control.ReadingsTextBox.Text.Contains("Preostalo: 5") && !control.IsActive && factories == 1, "GUI final partial counter/status incorrect");
+        Check(control.DispensedCountTextBox.Text == "5" && control.StatusText.Text.Contains("Preostalo: 5") && !control.IsActive && !control.IsDispensing && factories == 1,
+            "partial payout must retain actual count and turn off the green indicator");
         Pump(control.ShutdownAsync());
     }
     private static void ShutdownBeforeDispenseDoesNotConnect()
@@ -114,12 +123,28 @@ public static class HopperTestChecks
         var fake = new FakeHopper { FailDispose = true };
         var control = new HopperTestControl(Options, factory: o => fake);
         var operation = control.DispenseAsync(); Pump(operation);
-        Check(control.IsActive && !control.DispenseButton.IsEnabled && control.ReadingsTextBox.Text.Contains("Port nije zatvoren"), "GUI did not retain failed port-close ownership");
+        Check(control.IsActive && !control.IsDispensing && !control.DispenseButton.IsEnabled && control.StatusText.Text.Contains("Port nije zatvoren"), "GUI did not retain failed port-close ownership");
         bool held = false; try { using (ApplicationLease.Acquire()) { } } catch (InvalidOperationException) { held = true; }
         Check(held, "GUI cleanup failure released lease");
         fake.FailDispose = false; Pump(control.ShutdownAsync());
         Check(!control.IsActive && fake.Disposed, "GUI shutdown retry did not release retained session");
         using (ApplicationLease.Acquire()) { }
+    }
+    private static void CounterResetsForNextPayout()
+    {
+        var first = new FakeHopper(); var second = new FakeHopper { Hold = true };
+        var devices = new Queue<FakeHopper>(new[] { first, second });
+        var control = new HopperTestControl(Options, factory: o => devices.Dequeue());
+        control.CoinCountTextBox.Text = "5"; Pump(control.DispenseAsync()); Drain();
+        Check(control.DispensedCountTextBox.Text == "5" && !control.IsDispensing, "completed payout does not retain its final count");
+        control.CoinCountTextBox.Text = "3"; var next = control.DispenseAsync();
+        PumpUntil(() => second.Requests.Count == 1 && control.IsDispensing);
+        Check(control.DispensedCountTextBox.Text == "0", "a new payout must start from zero");
+        second.Progress.Report(1); PumpUntil(() => control.DispensedCountTextBox.Text == "1");
+        second.Completion.SetResult(new PayoutResult(3, 1, PayoutOutcome.Uncertain, false)); Pump(next); Drain();
+        Check(control.DispensedCountTextBox.Text == "1" && !control.IsDispensing && control.StatusText.Text.Contains("Nepouzdana"),
+            "uncertain payout must retain confirmed count and turn off activity");
+        Pump(control.ShutdownAsync());
     }
     private static void Pump(Task task)
     { PumpUntil(() => task.IsCompleted); task.GetAwaiter().GetResult(); }
